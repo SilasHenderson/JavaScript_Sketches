@@ -1,0 +1,83 @@
+<!--- break-out ----------------------------- $:\^S # --->
+<html> <head> <body> <script src = "three.min.js"> </script> <script>
+
+/*---------------------- Page --------------------------*/
+paperStyle = 'left:0%;     width:100%; position:fixed;' +   // Style String
+    'top:0%;  height:100%; left:0%;    color:#222222;'  +
+    'background-color:#cccccc;';
+
+var topBar = document.createElement('div');                 // Top Div
+    topBar.style.cssText = paperStyle;
+    topBar.style.height  = '10%';
+    topBar.innerHTML     = '&#160'.repeat(10) + 
+        'Press <b> Keyboard Arrows </b> to Move Block';
+    document.body.appendChild(topBar);
+
+var canvas = document.createElement('canvas');              // Canvas
+    canvas.style.cssText = paperStyle;
+    canvas.style.top     = '10%';
+    canvas.style.height  = '90%';
+    document.body.appendChild(canvas);
+
+var w = canvas.getBoundingClientRect().width;               // -- w, h
+var h = canvas.getBoundingClientRect().height;
+
+var renderer = new THREE.WebGLRenderer({canvas:canvas});    // Renderer
+    renderer.setSize(w, h);
+    renderer.setClearColor(0x222222);     
+    document.body.appendChild(renderer.domElement);
+
+/*--------------------- Scene --------------------------*/
+var scene  = new THREE.Scene();                             // Scene
+var camera = new THREE.OrthographicCamera(                  // Camera
+    -150, 150, 150, -150, -1, 1);
+
+var box    = new THREE.Mesh(                                // Box
+    new THREE.PlaneGeometry(20, 10), 
+    new THREE.MeshBasicMaterial({
+        color:0xeeeeee, side:THREE.DoubleSide}));
+    box.position.y = -98;
+
+var ball   = new THREE.Mesh(                                // Ball
+    new THREE.CircleGeometry(5, 8),
+    new THREE.MeshBasicMaterial({color:0x99aaff}));
+
+var borderLine = new THREE.Line(                            // Border
+    new THREE.Geometry, 
+    new THREE.LineBasicMaterial());
+    borderLine.geometry.vertices.push(  
+        new THREE.Vector3(-100,-120, 0),  new THREE.Vector3( 100,-120, 0), 
+        new THREE.Vector3( 100, 100, 0),  new THREE.Vector3(-100, 100, 0), 
+        new THREE.Vector3(-100,-120, 0));
+
+scene.add(ball, box, borderLine);
+
+/*---------------------- Keyboard --------------------*/
+document.body.onkeydown = function(e) {
+    if (e.key == 'ArrowLeft' ) boxVel = - 2;
+    if (e.key == 'ArrowRight') boxVel =   2;}
+document.body.onkeyup = function(e) {boxVel = 0;}
+
+/*----------------------- Loop ------------------------*/
+var ballVel = [1.3, 1.4];   
+var boxVel  = 0;
+
+var loop = function() {                              
+    requestAnimationFrame(loop);
+
+    if (Math.abs(ball.position.x) > 95)  ballVel[0] *= -1;  // side bounce
+    if (ball.position.y > 95)            ballVel[1] *= -1;  // top  bounce
+    if (ball.position.y < -90) {                            // low:
+        
+        if (Math.abs(ball.position.x - box.position.x)<= 20)// -- bounce if hit
+             ballVel[1]     *= -1;                          // -- reset  if miss
+        else ball.position.y = 94;}                   
+       
+    ball.position.x += ballVel[0];
+    ball.position.y += ballVel[1];       
+    box.position.x  += boxVel;
+
+    renderer.render(scene, camera);}
+
+loop();
+</script> </body> </head>

@@ -1,0 +1,90 @@
+<!-- echasketch ------------------------------------- $:\^$ # --->
+<html> <body> <script src = 'three.min.js'> </script> <script>
+
+var topBar = document.createElement('div');
+	topBar.style.position = 'fixed';	topBar.style.backgroundColor = '#222222';
+	topBar.style.top      = '0%';		topBar.style.height          = '10%';
+	topBar.style.left     = '0%';		topBar.style.width   		 = '100%';		
+	topBar.style.color    = '#cccccc';	topBar.style.zIndex  		 = '0';			
+	topBar.style.fontSize = 30;			document.body.appendChild(topBar);
+
+var canvas = document.createElement('canvas');
+	canvas.style.position = 'fixed';	
+	canvas.style.top      = '10%';		canvas.style.height          = '90%';
+	canvas.style.left     = '0%';		canvas.style.width           = '100%';
+	document.body.appendChild(canvas);
+ 
+var ren = new THREE.WebGLRenderer({canvas: canvas});
+	ren.setSize(canvas.offsetWidth, canvas.offsetHeight);
+	ren.setClearColor(0x445566);
+
+var scene  = new THREE.Scene();
+var camera = new THREE.OrthographicCamera(-100, 100, 100, -100, -1, 1);
+
+var circle = new THREE.Mesh(
+	new THREE.CircleGeometry(4, 6), 
+	new THREE.MeshBasicMaterial({color:0x222222, side:THREE.DoubleSide}));
+	scene.add(circle);
+
+data = new Float32Array(3000);
+line = new THREE.Points(
+	new THREE.BufferGeometry().addAttribute(
+		'position', new THREE.BufferAttribute(data, 3)), 
+	new THREE.PointsMaterial({ color:0x222222, size: 6}));
+scene.add(line);
+
+/*----------------------------------------------------------------------*/
+var velx  = 0;		var velX = 0; 	var drawMode = 1;
+var vely  = 0;		var velY = 0;	var updateMode = 0;
+var velxOn = -1;	var velOn = - 1;
+var velyOn = -1;	var c = 0;
+
+topBar.innerHTML = ' ~ ~ ~ move: (arrow keys) ~ ~ ~ draw: (space) ' 
+				 + ' ~ ~ ~ velocity: (enter) ~ ~ ~ ';
+
+document.onkeydown = function (e) {
+	updateMode = 1;
+	if (e.code == 'ArrowUp')   { vely =  1; velX =  0; velY =  1;}
+	if (e.code == 'ArrowDown') { vely = -1; velX =  0; velY = -1;}
+	if (e.code == 'ArrowLeft') { velx = -1; velX = -1; velY =  0;}
+	if (e.code == 'ArrowRight'){ velx =  1; velX =  1; velY =  0;}
+
+	if (e.code == 'Enter')     { velOn = - velOn;}
+	if (e.code == 'Space')     {
+		if (drawMode == -1) {	 circle.material.color.setHex(0x222222);}
+		if (drawMode ==  1) {	 circle.material.color.setHex(0xcccccc);}
+		drawMode = - drawMode;}}
+
+document.onkeyup = function (e) { 
+	if (velx != 0) {velx = 0;}
+	if (vely != 0) {vely = 0; }}
+
+/*-----------------------------------------------------------------------*/
+function loop() {
+
+	if (updateMode == 1){
+		topBar.innerHTML   	= " - - - (x, y) = ( " + circle.position.x 
+	                   		+ " , " + circle.position.y
+				       		+ ") - - - index = " + c;}
+	
+	if (velOn == 1) {
+		circle.position.x += velX;
+		circle.position.y += velY;}
+	
+	circle.position.x += velx;
+	circle.position.y += vely;
+
+	if (drawMode == 1) {
+		if (velx != 0 || vely!= 0 || velxOn == 0 || velyOn == 0) {
+			data[3*c    ] = circle.position.x;
+			data[3*c + 1] = circle.position.y;	c++;}}
+
+	if (c > 999) {c = 0;}	
+	
+	requestAnimationFrame(loop);
+	line.geometry.attributes.position.needsUpdate = true;
+	ren.render(scene, camera);}
+
+loop();
+
+</script> </body> </html>

@@ -1,0 +1,63 @@
+<!--- 3d-Scene -------------------------------- $:\^$ # ------> 
+<html> <body> <script src="three.min.js"> </script>  <script>
+
+/* ------------------- data, keyboard ---------------------*/
+var up    = 0;      var az   = 4;
+var down  = 0;      var vel  = 0;   var camx = 50;      
+var left  = 0;      var t0   = 0;   var camy = 50;      
+var right = 0;      var t    = 0;   var camz = 0;            
+
+document.body.onkeydown = function() {
+    if (event.key == 'ArrowLeft' )  left   = 1;
+    if (event.key == 'ArrowRight')  right  = 1;
+    if (event.key == 'ArrowDown' )  down   = 1;
+    if (event.key == 'ArrowUp'   )  up     = 1;}
+
+document.body.onkeyup = function() {
+    left  = up =  right = down = vel = 0;}
+
+/* ----------------------- layout ---------------------------*/
+var lowBar  = document.createElement('div');    document.body.appendChild(lowBar);
+var canvas0 = document.createElement('canvas'); document.body.appendChild(canvas0);
+
+
+
+var w = canvas0.getBoundingClientRect().width;
+var h = canvas0.getBoundingClientRect().height;
+
+/* ------------------------- scene ---------------------------*/
+var ren = new THREE.WebGLRenderer({canvas: canvas0});            
+    ren.setSize(window.innerWidth, window.innerHeight);  
+    ren.setClearColor(0x151515);
+
+var scn = new THREE.Scene();                              
+var lt  = new THREE.PointLight();   
+    lt.position.set(50, 50, 30);       
+
+var cam = new THREE.PerspectiveCamera( 60, w/h, 1, 1000); 
+    cam.up.set(0, 0, 1);
+
+var box = new THREE.Mesh(                             
+    new THREE.BoxGeometry(20, 20, 20), 
+    new THREE.MeshPhongMaterial({color:0x446644})); 
+    scn.add(lt, box);      
+
+/*--------------------------- Loop ---------------------------*/
+var loop = function() {     t = new Date().getTime() - t0;
+    if (left  == 1) az +=  .01;     
+    if (right == 1) az -=  .01;
+    if (down  == 1) vel =  -1;      
+    if (up    == 1) vel =   1;            
+
+    requestAnimationFrame(loop, 20);    
+    camx += vel*Math.cos(az);
+    camy += vel*Math.sin(az);   
+    tar = new THREE.Vector3(camx + Math.cos(az), 
+                            camy + Math.sin(az), 0);
+    cam.position.set(camx, camy, camz);
+    cam.lookAt(tar);
+    ren.render(scn, cam);}
+
+loop();
+</script> </body> </html>
+<!-------------------------------------------------------------->

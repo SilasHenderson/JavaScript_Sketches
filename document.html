@@ -1,0 +1,20 @@
+<!--- mouse test (w3 mod) --------------------------------->
+<html> <body> <canvas id = "canvas"> </canvas> <script>
+var ax = document.getElementById("canvas").getContext("2d");
+var w = window.innerWidth;		ax.canvas.style.width  = w;
+var h = window.innerHeight;		ax.canvas.style.height = h;
+ax.fillStyle = '#000000';		ax.canvas.style.background = '#dddddd';
+/*-------------------------------------------------------*/
+document.addEventListener('mousemove', mouseMoveCall, false);
+function mouseMoveCall() {
+	x = event.clientX;		y = event.clientY;}
+
+var i = 0;
+function loop () { i++;
+
+	ax.clearRect(0, 0, w, h);
+	ax.fillText(x, x, 80);
+	ax.fillText(y, 40, 40);}
+
+setInterval(loop, 50);
+</script> </body> </html>

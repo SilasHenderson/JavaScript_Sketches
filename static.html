@@ -1,0 +1,78 @@
+<!-- static ---------------------------------------- $:\^$ # --->
+<html> <body> <script src = 'three.min.js'> </script> <script>
+
+document.body.style.backgroundColor = '#000000';
+var canvas = document.createElement('canvas');
+    canvas.style.position = 'fixed';    
+    canvas.style.top      = '5%';       canvas.style.height = '90%';
+    canvas.style.left     = '5%';       canvas.style.width  = '90%';
+    document.body.appendChild(canvas);
+ 
+var ren = new THREE.WebGLRenderer({canvas: canvas});
+    ren.setSize(canvas.offsetWidth, canvas.offsetHeight);
+    ren.setClearColor(0xcccccc);
+
+var scene  = new THREE.Scene();
+var camera = new THREE.OrthographicCamera(-100, 100, -100, 100, -1, 1);
+
+var numEl = 10000;
+
+var vertices = new Float32Array(18*numEl);
+var colors   = new Float32Array(18*numEl);
+
+function vertexSet(v, x, y, w, h) {
+
+	vertices[18*v]     = x;			vertices[18*v +  9] = x;
+	vertices[18*v + 1] = y;			vertices[18*v + 10] = y + h
+	vertices[18*v + 2] = 0;			vertices[18*v + 11] = 0;	
+
+	vertices[18*v + 3] = x + w;		vertices[18*v + 12]  = x + w;
+	vertices[18*v + 4] = y;			vertices[18*v + 13]  = y + h;
+	vertices[18*v + 5] = 0;			vertices[18*v + 14]  = 0;	
+
+	vertices[18*v + 6] = x + w;	 	vertices[18*v + 15]  = x;	
+	vertices[18*v + 7] = y + h;		vertices[18*v + 16]  = y;	
+	vertices[18*v + 8] = 0;			vertices[18*v + 17]  = 0;}
+
+function colorSet(v, r, g, b) {
+
+	for (var i = 0; i<6; i++){
+		colors[18*v + 3*i]     = r;
+		colors[18*v + 3*i + 1] = g;
+		colors[18*v + 3*i + 2] = b;}}
+
+var truss = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute( 'position', 
+		new THREE.BufferAttribute(vertices, 3)).addAttribute( 'color',
+		new THREE.BufferAttribute(colors,  3)),
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, 
+	                     vertexColors: THREE.VertexColors}));
+
+scene.add(truss);
+
+var r = Math.random();
+var g = Math.random();
+var b = Math.random();
+
+var ct = 0;
+function loop() {
+	requestAnimationFrame(loop); ct++;
+		
+	diff = Math.cos(ct/100)/2;
+	var elCount = 0;
+	for (var i = 0; i < 100; i++) {
+		for (var j = 0; j < 100; j++) {
+			
+			r += diff*(1-Math.random()); 	if (Math.abs(r) > 1) r = .5;
+			g += diff*(1-Math.random());    if (Math.abs(g) > 1) g = .5;
+			b += diff*(1-Math.random());	if (Math.abs(b) > 1) b = .5;
+			
+			vertexSet(elCount, 2*j - 100, 2*i - 100, 2, 2);
+			colorSet( elCount, r, g, b);
+			elCount++;}}
+
+	truss.geometry.attributes.color.needsUpdate = true;
+	ren.render(scene, camera);}
+
+loop();
+</script> </body> </html>

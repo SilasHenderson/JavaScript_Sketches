@@ -1,0 +1,53 @@
+<!--- sine ----------------------------- $:\^$ # --->
+<html> <head> <style>  body   { margin: 0%;}
+                       canvas { width:100%; height:100%;} 
+</style> </head>
+<body> <script src = "three.min.js"> </script> <script>
+
+/*---------------------- canvas ----------------------*/
+var w, h, renderer, scene, camera, line, data;
+var x, y, ang, I;
+
+w = window.innerWidth;
+h = window.innerHeight;
+
+renderer = new THREE.WebGLRenderer();  
+renderer.setSize(w, h);
+renderer.setClearColor(0x141414);     
+document.body.appendChild(renderer.domElement);
+
+scene  = new THREE.Scene();
+camera = new THREE.OrthographicCamera(
+    -100, 100, 100, -100, -1, 1);
+data   = new Float32Array(3000);
+
+line  = new THREE.Line(
+    new THREE.BufferGeometry().addAttribute(
+            'position', new THREE.BufferAttribute(data, 3)),
+    new THREE.LineBasicMaterial({color:0x999999, linewidth:6}));
+scene.add(line);
+
+/*------------------------- loop -----------------------*/
+I = 0;
+function loop() {
+    for (var i = 0; i < 1000; i++) {
+
+        x   = -100 + i/5;
+        n   = 8*Math.cos(I/200);
+        ang = i*3.14/1000;
+
+        y   = 40*Math.cos(n*ang + I/40) + 
+              20*Math.cos(2*ang + I/20 + x/10) + 
+              20*Math.cos(ang*ang*n*n/100);
+
+        data[3*i    ] = x
+        data[3*i + 1] = y;
+        data[3*i + 2] = 0;}
+
+    requestAnimationFrame(loop);  I++;
+    line.geometry.attributes.position.needsUpdate = true;
+    renderer.render(scene, camera);}
+
+/*---------------------- run ------------------------------*/
+loop();
+</script> </body> </html>

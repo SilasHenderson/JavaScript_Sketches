@@ -1,0 +1,75 @@
+<!--- break-out ----------------------------- $:\^S # --->
+<html> <head> <style> body   {margin:  0;}
+                      canvas {width:100%; height:100%;} 
+</style> </head>
+<body> <script src = "three.min.js"> </script> <script>
+
+/*--------------------- data ----------------------------*/
+var ballPos = [  0,   0];   var boxPos = 0;
+var ballVel = [1.3, 1.4];   var boxVel = 0;
+  
+/*--------------------- canvas --------------------------*/
+var renderer = new THREE.WebGLRenderer();  
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x111111);     
+
+document.body.appendChild(renderer.domElement);
+document.addEventListener('keydown', keyDownCall);
+document.addEventListener('keyup'  , keyUpCall);
+
+/*---------------------- scene --------------------------*/
+var scene  = new THREE.Scene();
+var camera = new THREE.OrthographicCamera(
+    -150, 150, 150, -150, -1, 1);
+
+var box    = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 10), 
+    new THREE.MeshBasicMaterial({
+        color:0xeeeeee, side:THREE.DoubleSide}));
+    box.position.y = -98;
+
+var ball = new THREE.Mesh(
+    new THREE.CircleGeometry(5, 8),
+    new THREE.MeshBasicMaterial({color:0x99aaff}));
+
+var borderLine = new THREE.Line(
+    new THREE.Geometry, 
+    new THREE.LineBasicMaterial());
+
+borderLine.geometry.vertices.push(  
+    new THREE.Vector3(- 100, - 120, 0),  
+    new THREE.Vector3(  100, - 120, 0), 
+    new THREE.Vector3(  100,   100, 0), 
+    new THREE.Vector3(- 100,   100, 0), 
+    new THREE.Vector3(- 100, - 120, 0));
+
+scene.add(ball, box, borderLine);
+
+/*---------------------- keyboard ---------------------*/
+function keyDownCall() {                            
+    if (event.key == 'ArrowLeft' ) boxVel = - 2;
+    if (event.key == 'ArrowRight') boxVel =   2;}
+function keyUpCall() { boxVel = 0;}
+    
+/*----------------------- loop ------------------------*/
+var loop = function() {                              
+    requestAnimationFrame(loop, 50);
+
+    if (Math.abs(ballPos[0]) > 95)  ballVel[0] *= -1;
+    if (ballPos[1] > 95)            ballVel[1] *= -1;
+    
+    if (ballPos[1] < -90) {
+        if (Math.abs(ballPos[0] - boxPos) <= 20) 
+            ballVel[1] *= -1;
+        if (Math.abs(ballPos[0] - boxPos) >  20) 
+            ballPos[1] = 94;}
+       
+    ballPos[0] += ballVel[0];   ball.position.x = ballPos[0];
+    ballPos[1] += ballVel[1];   ball.position.y = ballPos[1];
+    boxPos += boxVel;           box.position.x = boxPos;
+
+    renderer.render(scene, camera);}
+
+/*----------------------- run ------------------------*/
+loop();
+</script> </body> </html>

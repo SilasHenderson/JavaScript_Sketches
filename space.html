@@ -1,0 +1,185 @@
+<!--- planets ------------------------------ $:\^$ # ------> 
+<html> <body> <script src="three.min.js"> </script>  <script>
+
+/* ------------------- data, keyboard ---------------------*/
+var camx  =  200;     var camy   = 200;     var camz  =  0;       
+var az    =    4;     var azVel  =   0;     var vel   =  0;  
+var el    =    0;     var elVel  =   0;     var ii    =  0;
+var flyOn =    0;     var progOn =   0;     var ux, uy, uz;
+
+var G   = 30;  var vel0 = .002;
+var Rad = 500;
+
+var planetSize = 1;
+
+function randomColor() {
+    var colorString = '0123456789abcdef';   var color = '#';
+    for (var i = 0; i < 6; i++) {
+        color += colorString[Math.floor(
+            Math.random()*Math.random()*16)];}
+    return color;}
+
+document.body.onkeydown = function(e) {
+    progOn = 1;
+    if (e.key == 'ArrowLeft' )  azVel =  .02;     
+    if (e.key == 'ArrowRight')  azVel = -.02;
+    if (e.key == 'ArrowUp') {
+        if (flyOn == 0) vel   =   3;
+        if (flyOn == 1) elVel = .01;}
+    if (e.key == 'ArrowDown') {
+        if (flyOn == 0) vel   =   -3;
+        if (flyOn == 1) elVel = -.01;}    
+    if (e.key == 'Enter') {
+        if ( flyOn == 0 ) flyOn = 1;
+        else flyOn = 0; }}
+
+document.body.onkeyup = function() { vel = azVel = elVel = 0;}
+
+/* ----------------------- layout ---------------------------*/
+var topBar = document.createElement('div');  
+    topBar.style.top       = '0%';       topBar.style.height = '10%';
+    topBar.style.left      = '0%';       topBar.style.width  = '100%';
+    topBar.style.fontSize  =  20;        topBar.style.color  = 'cccccc';       
+    topBar.style.position  = 'fixed';    topBar.style.backgroundColor = '#1c1c1c';
+    document.body.appendChild(topBar);
+
+var canvas0 = document.createElement('canvas'); 
+    canvas0.style.top      = '10%';     canvas0.style.height = '90%';
+    canvas0.style.left     = '0%';      canvas0.style.width  = '100%';
+    canvas0.style.position = 'fixed';   document.body.appendChild(canvas0);
+
+var w = canvas0.getBoundingClientRect().width;
+var h = canvas0.getBoundingClientRect().height;
+var ren = new THREE.WebGLRenderer({canvas: canvas0});            
+    ren.setSize(w, h);  
+    ren.setClearColor(0x0e0e0e);
+
+var scn = new THREE.Scene();                              
+var cam = new THREE.PerspectiveCamera(60, w/h, .1, 100000); 
+    cam.up.set(0, 0, 1);
+
+var lt  = new THREE.PointLight();               scn.add(lt);     
+var lt0 = new THREE.AmbientLight(0xffffff, .3); scn.add(lt0);
+
+var planets     = [];
+var planetsNum  = 120;
+var planetsPos  = new Float32Array(360);
+var planetsVel  = new Float32Array(360);    
+var planetsMass = new Float32Array(120);
+
+planetsMass[0] = planetSize;
+planetsPos[0] = planetsPos[1] = planetsPos[2] = 0;
+planetsVel[0] = planetsVel[1] = planetsVel[2] = 0;
+
+for (var i = 1; i < planetsNum; i++) {
+    planetsMass[i]      = planetSize*Math.random()*Math.random();
+
+    planetsPos[3*i    ] = Rad*(2*Math.random() - 1);
+    planetsPos[3*i + 1] = Rad*(2*Math.random() - 1);
+    planetsPos[3*i + 2] = Rad*(2*Math.random() - 1);
+
+    planetsVel[3*i    ] =   vel0*planetsPos[3*i + 1];
+    planetsVel[3*i + 1] = - vel0*planetsPos[3*i    ];
+    planetsVel[3*i + 2] =   vel0*(2*Math.random() - 1);}
+
+for (var i = 0; i < 120; i++) {
+    planets[i] = new THREE.Mesh( 
+        new THREE.SphereGeometry(20*Math.sqrt(planetsMass[i]), 8, 8), 
+        new THREE.MeshPhongMaterial({color:randomColor()}));
+    planets[i].position.x = planetsPos[3*i    ];
+    planets[i].position.y = planetsPos[3*i + 1];
+    planets[i].position.z = planetsPos[3*i + 2];
+    scn.add(planets[i]);}
+
+// planets[0].material.color.setHex(0xeeccaa);
+var starPos = new Float32Array(3000);
+for (var i = 0; i < 1000; i++) {
+    var starEl   = 6.28*Math.random();
+    var starAz   = 6.28*Math.random();
+    var starDist = 20000 + 70000*Math.random();
+
+    starPos[3*i    ] = starDist*Math.cos(starEl)*Math.cos(starAz);
+    starPos[3*i + 1] = starDist*Math.cos(starEl)*Math.sin(starAz);
+    starPos[3*i + 2] = starDist*Math.sin(starEl);}
+
+var starVel = new Float32Array(3000);
+var stars   = new THREE.Points(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(starPos, 3)),
+    new THREE.PointsMaterial({color:0x777777, size:100, colorWrite:true, 
+        side: THREE.DoubleSide}));
+    scn.add(stars);
+
+/*--------------------------- Loop ---------------------------*/
+var dt    = .02;
+var space = '&#160'.repeat(10);
+
+var loop  = function() {
+    requestAnimationFrame(loop, 20);  ii++;
+
+    if (progOn == 0) {topBar.innerHTML =
+        space + 'Press Keyboard <b> Arrows </b> to turn: <br/>' + 
+        space + 'Press Keyboard <b> Enter  </b> to go';}
+    if (progOn == 1) {
+        topBar.innerHTML = space + '(x, y, z) = (' 
+                         + camx.toFixed(0) + ', '
+                         + camy.toFixed(0) + ', '
+                         + camz.toFixed(0) + ')' + '<br/>' + space
+        + '(el, az) = (' + (el*180/3.14).toFixed(0)
+        + ' ,' + (az*180/3.14).toFixed(0) + ')';}
+
+    az += azVel;
+    el += elVel;
+
+    ux = Math.cos(el)*Math.cos(az);     camx += vel*ux;
+    uy = Math.cos(el)*Math.sin(az);     camy += vel*uy;
+    uz = Math.sin(el);                  camz += vel*uz;
+    if (flyOn == 1) { camx += 6*ux;
+                      camy += 6*uy;
+                      camz += 6*uz;}
+
+    // Gravity
+    var ddx, ddy, ddz, distx, disty, distz, dist;
+
+    for (var i = 0; i < 120; i++) {
+
+        ddx = ddy = ddz = 0;                                        // acceleration 
+        for (var ii = 0; ii < 120; ii++){
+            if (i != ii) {
+
+                distx = planetsPos[3*ii    ] - planetsPos[3*i    ];
+                disty = planetsPos[3*ii + 1] - planetsPos[3*i + 1];
+                distz = planetsPos[3*ii + 2] - planetsPos[3*i + 2];
+
+                dist = Math.sqrt(distx*distx + disty*disty + distz*distz);
+                
+                ddx += G*(planetsMass[ii]/planetsMass[i])*
+                         (distx/(dist*dist*dist + 1));
+                ddy += G*(planetsMass[ii]/planetsMass[i])*
+                         (disty/(dist*dist*dist + 1));
+                ddz += G*(planetsMass[ii]/planetsMass[i])*
+                         (distz/(dist*dist*dist + 1));
+                
+                planetsVel[3*i    ] += ddx*dt;
+                planetsVel[3*i + 1] += ddy*dt;
+                planetsVel[3*i + 2] += ddz*dt; }}}
+         
+    for (var i = 0; i < 120; i++) {   
+
+        planetsPos[3*i    ] += planetsVel[3*i    ];
+        planetsPos[3*i + 1] += planetsVel[3*i + 1];
+        planetsPos[3*i + 2] += planetsVel[3*i + 2];
+
+        planets[i].position.x = planetsPos[3*i    ];
+        planets[i].position.y = planetsPos[3*i + 1];
+        planets[i].position.z = planetsPos[3*i + 2];}
+
+    // Update
+    cam.position.set( camx,      camy,      camz);
+    cam.lookAt(       camx + ux, camy + uy, camz + uz);
+    lt.position.set(3000*Math.cos(ii/20), 
+                    3000*Math.sin(ii/20), 100); 
+    ren.render(scn, cam);}
+
+loop();
+</script> </body> </html>

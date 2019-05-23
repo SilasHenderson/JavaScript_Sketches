@@ -1,0 +1,80 @@
+<!--- drawing-robot-2d ------------------------ $:\^$ # ------> 
+<html> <head> <style> body   { height: 100%; position: fixed; }
+                      canvas { width:  100%; overflow: hidden;}  
+</style> </head>  
+      <body>  <script src="three.min.js"> </script>  <script>
+
+/*------------------------- Data ----------------------------*/
+var L1 = 50;    var ang0 = 0;   var w = window.innerWidth;    
+var L2 = 50;    var ang1 = 0;   var h = window.innerHeight;
+var ang = 0;    
+var ptCount = 0;
+var targetPts  = new Float32Array();       
+var drawingPts = new Float32Array(5000);
+
+var nodes   = new Float32Array([0,0,0,0,0,0,0,0,0]);
+
+/*------------------------- Canvas --------------------------*/             
+var ren = new THREE.WebGLRenderer();  
+    ren.setSize(w, h);
+    ren.setClearColor(0x141414);     
+    document.body.appendChild(ren.domElement);
+
+var scn = new THREE.Scene();
+var cam = new THREE.OrthographicCamera(
+    -100*w/h, 100*w/h, 100, -100, -1, 1);
+
+// ------------------------ Arm -----------------------------*/
+var arm = new THREE.Line(
+    new THREE.BufferGeometry(), 
+    new THREE.LineBasicMaterial(
+        {color: 0x999999, linewidth:5}));
+    arm.geometry.addAttribute('position', 
+        new THREE.BufferAttribute(nodes, 3)); scn.add(arm);
+
+/*----------------------- Points ---------------------------*/
+var drawing = new THREE.Points(
+    new THREE.BufferGeometry(), 
+    new THREE.PointsMaterial( {color: 0xaaccee, size:4}));
+    drawing.geometry.addAttribute('position', 
+        new THREE.BufferAttribute( drawingPts, 3));    
+    scn.add(drawing);
+
+/*----------------------- Kinematics ------------------------*/
+function angNodeSolve(x, y) {             
+    ang0 = 2*Math.atan((2*L1*y - Math.sqrt( 
+        -   L1*L1*L1*L1 + 2*L1*L1*L2*L2 -   L2*L2*L2*L2 
+        + 2*L1*L1*x* x  + 2*L1*L1*y* y  + 2*L2*L2* x* x 
+        + 2*L2*L2*y* y  -   x* x* x* x  - 2* x* x* y* y 
+        -   y* y* y* y))
+                  /(L1*L1 + 2*L1*x - L2*L2 + x*x + y*y));
+
+    ang1 = 2*Math.atan((2*L2*y +  Math.sqrt((
+        -   L1*L1 + 2*L1*L2 - L2*L2 + x*x + y*y)
+        *(  L1*L1 + 2*L1*L2 + L2*L2 - x*x - y*y)))     
+        /(- L1*L1 + 2*L2*x  + L2*L2 + x*x + y*y));
+ 
+    nodes[3] = L1*Math.cos(ang0);
+    nodes[4] = L1*Math.sin(ang0);
+   
+    nodes[6] = L1*Math.cos(ang0) + L2*Math.cos(ang1); 
+    nodes[7] = L1*Math.sin(ang0) + L2*Math.sin(ang1);}
+
+/*------------------------------ Loop -----------------------*/
+var loop = function() { ang += .005;    ptCount += 1;
+
+    requestAnimationFrame(loop);
+    angNodeSolve(-40 + 50*Math.cos(5*ang)*Math.cos(ang),
+                  30 + 50*Math.cos(5*ang)*Math.sin(ang));
+
+    drawingPts[3*ptCount    ] = nodes[6];
+    drawingPts[3*ptCount + 1] = nodes[7];
+        
+    arm.geometry.attributes.position.needsUpdate     = true;
+    drawing.geometry.attributes.position.needsUpdate = true;
+
+    ren.render(scn, cam);}
+
+/*------------------------------ Run -------------------------*/
+loop();
+</script> </body> </html>

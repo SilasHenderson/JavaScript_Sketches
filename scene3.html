@@ -1,0 +1,117 @@
+<!--- flight -------------------------------- $:\^$ # ------> 
+<html> <body> <script src="three.min.js"> </script>  <script>
+
+/* ------------------- data, keyboard ---------------------*/
+var camx  = 50;     var camy   = 50;   var camz  = 10;       
+var az    =  4;     var azVel  =  0;   var vel   =  0;  
+var el    =  0;     var elVel  =  0;   var ii    =  0;
+var flyOn =  0;     var progOn =  0;   var ux, uy, uz;
+
+function randomColor() {
+    var colorString = '0123456789abcdef';   var color = '#';
+    for (var i = 0; i < 6; i++) {
+        color += colorString[Math.floor(Math.random()*10)];}
+    return color;}
+
+document.body.onkeydown = function(e) {
+    progOn = 1;
+    if (e.key == 'ArrowLeft' )  azVel =  .02;     
+    if (e.key == 'ArrowRight')  azVel = -.02;
+    if (e.key == 'ArrowUp') {
+        if (flyOn == 0) vel   =   3;
+        if (flyOn == 1) elVel = .01;}
+    if (e.key == 'ArrowDown') {
+        if (flyOn == 0) vel   =   -3;
+        if (flyOn == 1) elVel = -.01;}    
+    if (e.key == 'Enter') {
+        if ( flyOn == 0 ) flyOn = 1;
+        else flyOn = 0; }}
+
+document.body.onkeyup = function() { vel = azVel = elVel = 0;}
+
+/* ----------------------- layout ---------------------------*/
+var topBar = document.createElement('div');  
+    topBar.style.top       = '0%';       topBar.style.height = '10%';
+    topBar.style.left      = '0%';       topBar.style.width  = '100%';
+    topBar.style.fontSize  =  25;        topBar.style.color  = 'cccccc';       
+    topBar.style.position  = 'fixed';    topBar.style.backgroundColor = '#1c1c1c';
+    document.body.appendChild(topBar);
+
+var canvas0 = document.createElement('canvas'); 
+    canvas0.style.top      = '10%';     canvas0.style.height = '90%';
+    canvas0.style.left     = '0%';      canvas0.style.width  = '100%';
+    canvas0.style.position = 'fixed';   document.body.appendChild(canvas0);
+
+var w    = canvas0.getBoundingClientRect().width;
+var h    = canvas0.getBoundingClientRect().height;
+var ren = new THREE.WebGLRenderer({canvas: canvas0});            
+    ren.setSize(w, h);  
+    ren.setClearColor(0x7788dd);
+
+var scn = new THREE.Scene();                              
+var cam = new THREE.PerspectiveCamera(75, w/h, 1, 10000); 
+    cam.up.set(0, 0, 1);
+
+var lt  = new THREE.PointLight();   scn.add(lt,  floor);     
+var lt0 = new THREE.AmbientLight(0xaaaaaa, .3); scn.add(lt0, floor);
+
+var floor = new THREE.Mesh(
+    new THREE.BoxGeometry(10000, 10000, 1),
+    new THREE.MeshPhongMaterial({color: 0x446633, side: THREE.DoubleSide}));
+    scn.add(floor); 
+
+var boxes = [];
+for (var i = 0; i < 120; i++) {
+
+    var boxH = 200*Math.random();
+    boxes[i] = new THREE.Mesh( 
+        new THREE.BoxGeometry(80*Math.random(), 80*Math.random(), boxH), 
+        new THREE.MeshPhongMaterial({color:randomColor()}));
+
+    var radius = 500; if (i >  80) radius = 3000;
+    boxes[i].position.x = 2*radius*Math.random() - radius;
+    boxes[i].position.y = 2*radius*Math.random() - radius;
+    boxes[i].position.z = boxH/2;
+    scn.add(boxes[i]);
+
+    if (i > 100) {
+        boxes[i].position.z += 1000*(1 + Math.random());
+        boxes[i].scale.x =  5; boxes[i].scale.y = 5;
+        boxes[i].scale.z = .1;
+        boxes[i].material.color.setHex(0xcccccc);}}
+
+/*--------------------------- Loop ---------------------------*/
+var space = '&#160'.repeat(10);
+var loop = function() {
+    requestAnimationFrame(loop, 20);  ii++;
+
+    if (progOn == 0) {topBar.innerHTML =
+        space + 'Press Keyboard <b> Arrows </b> to turn: <br/>' + 
+        space + 'Press Keyboard <b> Enter  </b> to go';}
+    if (progOn == 1) {
+        topBar.innerHTML = space + '(x, y, z) = (' 
+                         + camx.toFixed(0) + ', '
+                         + camy.toFixed(0) + ', '
+                         + camz.toFixed(0) + ') <br/>'
+        + space + '(el, az) = (' + (el*180/3.14).toFixed(0)
+        + ' ,' + (az*180/3.14).toFixed(0) + ')';}
+
+    az += azVel;
+    el += elVel;
+
+    ux = Math.cos(el)*Math.cos(az);     camx += vel*ux;
+    uy = Math.cos(el)*Math.sin(az);     camy += vel*uy;
+    uz = Math.sin(el);                  camz += vel*uz;
+    if (flyOn == 1) { camx += 3*ux;
+                      camy += 3*uy;
+                      camz += 3*uz;}
+
+    cam.position.set( camx,      camy,      camz);
+    cam.lookAt(       camx + ux, camy + uy, camz + uz);
+    lt.position.set(300*Math.cos(ii/200), 
+                    300*Math.sin(ii/200), 100); 
+    ren.render(scn, cam);}
+
+loop();
+
+</script> </body> </html>
