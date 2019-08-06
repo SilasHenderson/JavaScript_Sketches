@@ -1,0 +1,304 @@
+<!--------------------- Min Truss Test (Matrix) ------$:\^# -
+--- next: replace matrix values with sc, cs, cc, etc. -->
+
+<html> <head> 
+<link href='https://fonts.googleapis.com/css?family=Baloo'
+      rel='stylesheet'>
+<script src='three.min.js'> </script> 
+<script src='sushi.js'>     </script>  <style> 
+
+.key {  top:0%;           height:9.8%;      border:none;
+        left:0%;          position:fixed;   width:10%;    
+        font-size:20;     font-family:'Baloo';
+        color:#cccccc;    background-color:#222222;}
+.key:hover {background-color: #334433;}
+.key:active{background-color: #333344;} </style> </head> <body> 
+
+<button class="key" id = "key0" style="width:20%;"></button>
+<button class="key" onmousedown="key1()" style="left:20%;"> Element  </button>
+<button class="key" onmousedown="key2()" style="left:30%;"> FixedPt </button>
+<button class="key" onmousedown="key3()" style="left:40%;"> Force </button>
+<button class="key" onmousedown="key4()" style="left:50%;"> </button>
+<button class="key" onmousedown="key5()" style="left:60%;"> Clear </button>    
+<button class="key" onmousedown="key6()" style="left:70%;"> </button>
+<button class="key" onmousedown="key7()" style="left:80%;"> </button>
+<button class="key" onmousedown="key8()" style="left:90%;"> </button> 
+
+<div id="infoDiv" style="	   font-size:20;
+	position:fixed; color:#cccccc;   top:10%;   height:90%;
+	      background-color:#2e2e2e; left:60%; 	width:40%;"> </div>
+
+<canvas id="canvas" style=
+	"position:fixed; top:10%; height:90%; 
+	                 left:0%; width:60%;"> </canvas>  <script>
+
+document.body.style.backgroundColor = '#cccccc';
+
+var key0    = document.getElementById('key0');
+var infoDiv = document.getElementById('infoDiv');
+
+var canvas = document.getElementById('canvas');
+	var lims   = canvas.getBoundingClientRect();
+	var aspect = lims.width/lims.height;
+	var cxMid  = lims.x + lims.width/2;		var cxRad  = lims.width/2;  
+	var cyMid  = lims.y + lims.height/2;    var cyRad  = lims.height/2; 
+
+var ren    = new THREE.WebGLRenderer({canvas:canvas});
+	ren.setSize(cxRad*2, cyRad*2);
+	ren.setClearColor(0xcccccc);
+
+var axMid =  0; 		var ayMid = 0;
+var axRad = 10*aspect; 	var ayRad = 10;
+
+var axPts = new Float32Array(900);
+for (i = 0; i < 100; i++) {
+	axPts[8*i    ] =  i - 50;  	axPts[8*i + 1] =      -50;
+    axPts[8*i + 2] =  i - 50;   axPts[8*i + 3] =       50;
+    axPts[8*i + 4] =    - 50;   axPts[8*i + 5] =   i - 50;
+    axPts[8*i + 6] =      50;   axPts[8*i + 7] =   i - 50;}
+
+var ax = new THREE.LineSegments(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(axPts, 2)), 
+    new THREE.LineBasicMaterial({color:0x665555, linewidth: .5}));
+
+var cam = new THREE.OrthographicCamera(-axRad, axRad, -ayRad, ayRad, -1, 1);
+var scn = new THREE.Scene();
+
+/*-------------------------- Data --------------------------------------*/
+var mode = 'build';
+
+var nodeCoords = [];	
+var elNodes    = [];
+var fNodes     = [];
+var oNodes     = [];
+
+var K;
+var KEl;
+var K3   = [];
+var ElAL = [];
+
+/*-------------------------- Data, Buffers, Meshes ----------------------*/
+var trussI = 0;
+var elVertices = new Float32Array(2000);
+
+var elMesh = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute( 'position', 
+		new THREE.BufferAttribute(elVertices, 2)), 
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, color:0x334433}));
+
+var fVertices = new Float32Array(5000);
+var fMesh = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute('position', 
+		new THREE.BufferAttribute(fVertices, 2)), 
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, color: 0x882222}));
+
+scn.add(ax, elMesh, fMesh);
+
+/*---------------------- Mouse Pos/Click ---------------------*/
+var mouseFresh = 1;   var cx = cy = cx0 = cy0 = 0;
+var mouseDown  = 0;   var ax = ay = ax0 = ay0 = 0;
+var mouseUp    = 0;   var gx = gy = gx0 = gy0 = 0;
+
+canvas.onmousedown = function()  { 
+	mouseDown = 1;
+	if (mouseFresh == 1) {
+		ax0 = ax;	ay0 = ay;  gx0 = gx;
+		cx0 = cx;   cy0 = cy;  gy0 = gy;	mouseFresh = 0;}}
+
+canvas.onmouseup   = function()  { mouseFresh = mouseUp = 1; mouseDown = 0; }
+document.onmousemove = function(e) { 
+    cx = e.clientX;	ax = axMid + (cx - cxMid)/cxRad*axRad; gx = Math.floor(ax + .5);
+    cy = e.clientY;	ay = ayMid + (cy - cyMid)/cyRad*ayRad; gy = Math.floor(ay + .5);}
+
+/*-------------------- GUI Keys  ---------------------*/
+document.onkeydown = function(e) {
+	if (e.key == 'Enter') WVel += .03;
+	if (e.key == 'Shift') WVel -= .03;}
+document.onkeyup = function() { WVel = 0;}
+
+function key1() { mode = 'build';}
+function key2() { mode = 'fixedPt';}
+function key3() { mode = 'force';}
+function key4() { 
+	for (var i = 0; i < 1000; i++) {
+		elVertices[i] = NaN;
+		fVertices[i]  = NaN;}
+	elMesh.geometry.attributes.position.needsUpdate = true;
+    fMesh.geometry.attributes.position.needsUpdate = true;
+	for (var i = 0; i < oMesh.length; i++) {
+		scn.remove(oMesh[i]);}}
+
+	
+
+/*--------------------- FixedPt Mode Functions ---------------------*/
+var oMesh = [];
+
+function fixedPtModeIter() {
+	if (mouseDown == 1){ 
+		scn.remove(oMesh[oNodes.length]);
+		oMesh[oNodes.length] = new THREE.Mesh(                               
+    		new THREE.BoxGeometry(1, 1),
+    		new THREE.MeshBasicMaterial({color:0x000000, side:THREE.DoubleSide}));
+		oMesh[oNodes.length].position.x = gx;
+		oMesh[oNodes.length].position.y = gy;
+		oMesh[oNodes.length].rotation.z  = .7854;
+		scn.add(oMesh[oNodes.length]);}
+
+	if (mouseUp == 1){ mouseUp = 0; oNodes.push([gx, gy]);}}
+
+/*--------------------- Force Mode Functions --------------------------*/
+function fModeMouseUp() {
+	if (Math.abs(gx - gx0) + Math.abs(gy - gy0) > 0) {
+		fNodes.push(gx0, gy0, gx, gy);}
+	else {fClear();}}
+
+function fClear () {
+	for (var i = 12*fNodes.length; i < 12*fNodes.length + 12; i++) {
+		fVertices[i] = NaN;}}
+
+function fMeshSet(x0, y0, x1, y1) {
+	var dx    = (x1 - x0);
+	var dy    = (y1 - y0);		var  len = Math.sqrt(dx*dx + dy*dy);
+	var cos0  = dx/len;			var  sin0 = dy/len;
+
+	var w = len/30;
+	var fx = dx;	
+	var fy = dy;	var fI = fNodes.length;
+
+	fVertices[18*fI     ]  = x0 + w*sin0;	fVertices[18*fI +  1]  = y0 - w*cos0;
+	fVertices[18*fI +  2]  = x0 - w*sin0;  	fVertices[18*fI +  3]  = y0 + w*cos0;
+	fVertices[18*fI +  4]  = x1 - w*sin0;	fVertices[18*fI +  5]  = y1 + w*cos0;
+
+	fVertices[18*fI +  6]  = x0 + w*sin0;	fVertices[18*fI +  7]  = y0 - w*cos0;
+	fVertices[18*fI +  8]  = x1 + w*sin0;	fVertices[18*fI +  9]  = y1 - w*cos0;
+	fVertices[18*fI + 10]  = x1 - w*sin0;  	fVertices[18*fI + 11]  = y1 + w*cos0;
+
+	fVertices[18*fI + 12]  = x1+4*w*sin0;	fVertices[18*fI + 13]  = y1-4*w*cos0;
+	fVertices[18*fI + 14]  = x1-4*w*sin0;  	fVertices[18*fI + 15]  = y1+4*w*cos0;
+	fVertices[18*fI + 16]  = x1 + dx/3;		fVertices[18*fI + 17]  = y1 + dy/3;
+
+	fMesh.geometry.attributes.position.needsUpdate = true;}
+
+/*--------------------- Build Mode Functions --------------------*/
+function elClear(trussI) {
+	for (var i = 12*trussI; i < 12*trussI + 12; i++) {
+		elVertices[i] = NaN;}}
+
+function elSet(x0, y0, x1, y1, w) {
+	var dx    = (x1 - x0);		w        = w/2;	
+	var dy    = (y1 - y0);		var len  = Math.sqrt(dx*dx + dy*dy);
+	var cos0  = dx/len;			var sin0 = dy/len;
+
+	elVertices[12*trussI   ] = x0 + w*sin0;	elVertices[12*trussI+ 1]  = y0 - w*cos0;
+	elVertices[12*trussI+ 2] = x0 - w*sin0;	elVertices[12*trussI+ 3]  = y0 + w*cos0;
+	elVertices[12*trussI+ 4] = x1 - w*sin0;	elVertices[12*trussI+ 5]  = y1 + w*cos0;
+	elVertices[12*trussI+ 6] = x0 + w*sin0;	elVertices[12*trussI+ 7]  = y0 - w*cos0;
+	elVertices[12*trussI+ 8] = x1 + w*sin0;	elVertices[12*trussI+ 9]  = y1 - w*cos0;
+	elVertices[12*trussI+10] = x1 - w*sin0;	elVertices[12*trussI+11]  = y1 + w*cos0;
+
+	elMesh.geometry.attributes.position.needsUpdate = true;}
+
+function addEl() {
+	if (nodeCoords.length == 0) {
+		nodeCoords.push([gx0, gy0], [gx, gy]);
+		elNodes.push([0, 1]);}
+	else {	
+		var elNode0Dup = 0;  var elNode0;
+		var elNode1Dup = 0;  var elNode1;
+		for (i = 0; i < nodeCoords.length; i++) {
+			if ( Math.abs(nodeCoords[i][0] - gx0) 
+		   	   + Math.abs(nodeCoords[i][1] - gy0) < .1){ 
+				elNode0Dup = 1; elNode0 = i;}
+			if ( Math.abs(nodeCoords[i][0] - gx) 
+		   	   + Math.abs(nodeCoords[i][1] - gy) < .1) { 
+				elNode1Dup = 1; elNode1 = i;}}
+
+		if (elNode0Dup == 0) {elNode0 = nodeCoords.length; 
+						      nodeCoords.push([gx0, gy0]);}
+		if (elNode1Dup == 0) {elNode1 = nodeCoords.length;
+		                      nodeCoords.push([gx , gy ]);}
+		elNodes.push([elNode0, elNode1]);}}		
+
+function elModeMouseUp() {
+	if (Math.abs(gx - gx0) + Math.abs(gy - gy0) > 0) {trussI++; addEl();}
+	else {elClear(trussI);}
+
+	KMake();	var KString = "K: <br/>";
+
+	for (var j = 0; j < 2*nodeCoords.length; j++) {
+		KString += '<br/>';
+		for (var i = 0; i < 2*nodeCoords.length; i++) {
+			var num = K.get(i, j);
+			num = num.toFixed(1).toString();
+			KString += num + ' , ';}}
+
+	KString += '<br/> <br/> element-node matrix: <br/> <br/>';
+	for (j = 0; j < elNodes.length; j++) {
+		KString += (elNodes[j][0] + ', ');};		KString += '<br/>';
+	for (j = 0; j < elNodes.length; j++) {
+		KString += (elNodes[j][1] + ', ');}
+
+	KString += '<br/> <br/> node-coordinate matrix: <br/> <br/>';
+	for (j = 0; j < nodeCoords.length; j++) {
+		KString += (nodeCoords[j][0] + ', ');}; 	KString += '<br/>';
+	for (j = 0; j < nodeCoords.length; j++) {
+		KString += (nodeCoords[j][1] + ', ');}
+    
+    infoDiv.innerHTML = KString;
+
+	var elNodeString = elNodes.toString();
+	elNodeString =	elNodeString.replace(/\n/g, "<br>");}
+
+/*---------------------- FEA Functions -----------------------------------*/
+
+function KMake() {
+	K = Sushi.Matrix.eye(2*nodeCoords.length); K.zeros();
+
+	for (var el = 0; el < elNodes.length; el++) {
+
+		var KEl = Sushi.Matrix.eye(2*nodeCoords.length); KEl.zeros();
+
+		var n0  = elNodes[el][0];		var n1  = elNodes[el][1];
+		var n0x = nodeCoords[n0][0];	var n1x = nodeCoords[n1][0];
+		var n0y = nodeCoords[n0][1];	var n1y = nodeCoords[n1][1];
+
+		var dx = (n1x - n0x);			var E = 100;  var A = 1;
+		var dy = (n1y - n0y);			var L = Math.sqrt(dx*dx + dy*dy);
+		var c  = dx/L;					var s = dy/L;
+
+		KEl.set(2*n0, 2*n0  ,  c*c*E*A/L);	KEl.set(2*n0+1, 2*n0  ,  c*s*E*A/L);
+		KEl.set(2*n0, 2*n0+1,  c*s*E*A/L); 	KEl.set(2*n0+1, 2*n0+1,  s*s*E*A/L);	
+
+		KEl.set(2*n0, 2*n1  , -c*c*E*A/L);	KEl.set(2*n0+1, 2*n1  , -c*s*E*A/L);
+		KEl.set(2*n0, 2*n1+1, -c*s*E*A/L);	KEl.set(2*n0+1, 2*n1+1, -s*s*E*A/L);	
+
+		KEl.set(2*n1, 2*n0  , -c*c*E*A/L);	KEl.set(2*n1+1, 2*n0  , -c*s*E*A/L);
+		KEl.set(2*n1, 2*n0+1, -c*s*E*A/L);	KEl.set(2*n1+1, 2*n0+1, -s*s*E*A/L);
+		
+		KEl.set(2*n1, 2*n1,    c*c*E*A/L);	KEl.set(2*n1+1, 2*n1  ,  c*s*E*A/L);
+		KEl.set(2*n1, 2*n1+1,  c*s*E*A/L);	KEl.set(2*n1+1, 2*n1+1,  s*s*E*A/L);
+
+		K.add(KEl);
+		K3[el] = KEl;}}
+
+/*------------------------- Main loop ----------------------------*/
+var W = .5; var WVel = 0; 
+function loop() {
+	W += WVel;
+
+	if (mode == 'build') {
+		if (mouseDown == 1) { elSet(gx0, gy0, gx, gy, W);}
+		if (mouseUp   == 1) { mouseUp = 0; elModeMouseUp();}}
+
+	if (mode == 'fixedPt') {fixedPtModeIter();}
+
+	if (mode == 'force') {
+		if (mouseDown == 1) { fMeshSet(gx0, gy0, gx, gy);}
+		if (mouseUp   == 1) { mouseUp = 0; fModeMouseUp();}}
+
+	requestAnimationFrame(loop);
+	ren.render(scn, cam);}
+
+loop();
+</script> </body> </html>

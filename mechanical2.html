@@ -1,0 +1,284 @@
+<!-- Mechanical-Studio ---------------------------------------- $:\^$ # --->
+<html> <link href='https://fonts.googleapis.com/css?family=Baloo' rel='stylesheet'>
+<body> <script src = 'three.min.js'> </script> <script>
+
+var mode = 'Draw';
+
+document.body.style.backgroundColor = '#000000';
+document.body.style.fontFamily      = 'Baloo';
+
+/*------------------------------- Layout --------------------------------*/
+var topBar = [];
+for (var i = 0; i < 9; i++) {
+    topBar[i] = document.createElement('div');
+    topBar[i].style.position = 'fixed';  topBar[i].style.backgroundColor = '#1a1a1a';
+    topBar[i].style.top      = '0%';     topBar[i].style.height   = '9.8%';
+    topBar[i].style.left     = 10 + 10*i + '%';
+    topBar[i].style.width    = '20%';
+    topBar[i].style.color    = '#cccccc';  topBar[i].style.fontSize = 20;
+    topBar[i].onmouseover = function() {this.style.backgroundColor = '#666677';}
+    topBar[i].onmouseout  = function() {this.style.backgroundColor = '#1a1a1a';}
+    topBar[i].onmousedown = function() {this.style.backgroundColor = '#aaaaaa';}
+    topBar[i].onmouseup   = function() {this.style.backgroundColor = '#666677';}
+    document.body.appendChild(topBar[i]);}
+
+topBar[0].style.left  =  '0%';
+topBar[0].style.width = '20%';
+topBar[0].innerHTML   = '&#160'.repeat(5) + 'Mechanical.Studio';
+
+topBar[5].innerHTML   = 'Build';
+topBar[6].innerHTML   = 'Info';
+topBar[7].innerHTML   = 'Settings';
+
+var topBarLow = document.createElement('div');
+    topBarLow.style.position = 'fixed';  topBarLow.style.backgroundColor = '#555588';
+    topBarLow.style.top      = '9.8%';   topBarLow.style.height   = '.2%';
+    topBarLow.style.left     = '0%';     topBarLow.style.width    = '100%';
+    document.body.appendChild(topBarLow);
+
+var sideBar = [];
+for (var i = 0; i < 9; i++) {
+    sideBar[i] = document.createElement('div');
+    sideBar[i].style.top  = 11 + 10*i + '%';    sideBar[i].style.height = '10%';
+    sideBar[i].style.left = '90%';              sideBar[i].style.width = '10%';
+    sideBar[i].style.position = 'fixed';        sideBar[i].style.color = 'cccccc';
+    sideBar[i].style.backgroundColor='#353644'; sideBar[i].style.fontSize = 25;
+
+    sideBar[i].onmouseup   = function() {this.style.backgroundColor = '#666677';} 
+    sideBar[i].onmouseover = function() {this.style.backgroundColor = '#666677';}
+    sideBar[i].onmouseout  = function() {this.style.backgroundColor = '#353644';}
+    sideBar[i].onmousedown = function() {
+        sideBarColorReset();
+        this.style.color = 'cc4444';
+        this.style.backgroundColor = '#aaaaaa';}
+    document.body.appendChild(sideBar[i]);}
+
+function sideBarColorReset() {
+    for (var i = 0; i < 9; i++) {sideBar[i].style.color = '#cccccc';}}
+
+sideBar[2].style.color = '#cc4444';
+
+sideBar[0].onmousedown = function(){
+    for (var i = 0; i < 4*drawLineI + 10; i++) { drawLineData[i] = NaN;}
+    for (var i = 0; i < 4*buffLineI + 10; i++) { buffLineData[i] = NaN;}
+    sideBarColorReset();
+    this.style.backgroundColor = '#aaaaaa';     
+    this.style.color = 'cc4444'; 
+    drawLineI = 0; drawLine.geometry.attributes.position.needsUpdate = true;
+    buffLineI = 0; buffLine.geometry.atrributes.position.needsUpdate = true;}
+
+sideBar[1].onmousedown = function() {
+    sideBarColorReset();
+    this.style.backgroundColor = '#aaaaaa';     
+    this.style.color = 'cc4444';     
+    mode = 'Pan';}
+
+sideBar[2].onmousedown = function() {
+    sideBarColorReset();
+    this.style.backgroundColor = '#aaaaaa';     
+    this.style.color = 'cc4444';
+    mode = 'Draw';}
+
+sideBar[3].onmousedown = function() {
+    sideBarColorReset();
+    this.style.backgroundColor = '#aaaaaa';     
+    this.style.color = 'cc4444';
+    mode = 'Line';}    
+
+sideBar[8].style.height = '8.3%';
+sideBar[0].innerHTML = '&#160'.repeat(3) + 'Clear';
+sideBar[1].innerHTML = '&#160'.repeat(3) + 'Pan';
+sideBar[2].innerHTML = '&#160'.repeat(3) + 'Draw';
+sideBar[3].innerHTML = '&#160'.repeat(3) + 'Line';
+
+var canvas = document.createElement('canvas');
+    canvas.style.top      = '11%';      canvas.style.height = '88%';
+    canvas.style.left     = '0.5%';     canvas.style.width  = '89%';
+    canvas.style.position = 'fixed';    document.body.appendChild(canvas);
+ 
+var ren = new THREE.WebGLRenderer({canvas: canvas});
+    ren.setSize(canvas.offsetWidth, canvas.offsetHeight);
+    ren.setClearColor(0xcccccc);
+
+var scene  = new THREE.Scene();
+var camera = new THREE.OrthographicCamera(-100, 100, -100, 100, -1, 1);
+
+/*------------------------ Axis Setup ---------------------------------------*/
+var lims   = canvas.getBoundingClientRect();
+var cxMid  = lims.x + lims.width/2;         var cxRad = lims.width/2;  
+var cyMid  = lims.y + lims.height/2;        var cyRad = lims.height/2; 
+var aspect = lims.width/lims.height;
+
+var axMid = 0;  var axRad = 7*aspect;       
+var ayMid = 0;  var ayRad = 7;   
+
+var axPts = new Float32Array(10000);
+var ax    = new THREE.LineSegments(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(axPts, 2)), 
+    new THREE.LineBasicMaterial({color:0x665555, linewidth: .5}));
+ax.geometry.dynamic = true;
+scene.add(ax);
+
+function axClear() {
+    for (var i = 0; i < 10000; i++) {
+        axPts[2*i    ] = 0;
+        axPts[2*i + 1] = 0;
+        ax.geometry.attributes.position.needsUpdate = true;}}
+
+function axSet() {  
+    for (var i = 0; i < 10000; i++) {
+        axPts[2*i    ] = 0;
+        axPts[2*i + 1] = 0;}
+    
+    var pt = 0;
+    for (x = axMid; x < axMid + axRad; x++) {
+        axPts[2*pt    ] = x;
+        axPts[2*pt + 1] = ayMid - ayRad; pt++;
+        axPts[2*pt    ] = x;
+        axPts[2*pt + 1] = ayMid + ayRad; pt++;}
+
+    for (x = axMid; x > axMid - axRad; x--) {
+        axPts[2*pt    ] = x;
+        axPts[2*pt + 1] = ayMid - ayRad; pt++;
+        axPts[2*pt    ] = x;
+        axPts[2*pt + 1] = ayMid + ayRad; pt++;}
+    
+    for (y = ayMid; y < ayMid + ayRad; y++) {
+        axPts[2*pt    ] = axMid - axRad;
+        axPts[2*pt + 1] = y;    pt++;
+        axPts[2*pt    ] = axMid + axRad;
+        axPts[2*pt + 1] = y;    pt++;}
+
+    for (y = ayMid; y > ayMid - ayRad; y--) {
+        axPts[2*pt    ] = axMid - axRad;
+        axPts[2*pt + 1] = y;    pt++;
+        axPts[2*pt    ] = axMid + axRad;
+        axPts[2*pt + 1] = y;    pt++;}
+
+    ax.geometry.attributes.position.needsUpdate = true;}
+
+/*------------------ Keyboard / Mouse ---------------------------------------*/
+var panXVel    = 0;     var panYVel = 0;    var zoomVel    = 0; 
+var mouseClick = 0;     var mx      = 0;    var keyDown    = 0;    
+var mouseDown  = 0;     var my      = 0;    var keyClick   = 0;
+var axOn       = 1;     var mx0, my0, mxAnchor, myAnchor, axMid0, ayMid0;
+var freshMouse = 1;     var MX, MY, MX0, MY0, anchorMX, anchorMY;
+var mouseClickUp = 0;
+
+
+document.onkeydown = function(e) {
+    keyDown = 1; keyClick = 1;
+    if (e.key == 'Enter')       zoomVel = -.2; 
+    if (e.key == 'Shift')       zoomVel =  .2;
+    if (e.key == 'ArrowLeft')   panXVel = -.2;
+    if (e.key == 'ArrowRight')  panXVel =  .2;
+    if (e.key == 'ArrowUp')     panYVel = -.2;
+    if (e.key == 'ArrowDown')   panYVel =  .2;
+    if (e.key == 'a'){ 
+        if ( axOn == 1) axOn = 0;
+        else axOn = 1;}}
+
+document.onkeyup = function(e) {
+    keyDown = 0; zoomVel = 0; panXVel = 0; panYVel = 0;}
+
+canvas.onmousemove = function(e) {
+    MX0 = MX;   MX = e.clientX;
+    MY0 = MY;   MY = e.clientY;
+
+    mx0 = mx;   mx = axMid + (e.clientX - cxMid)/cxRad*axRad;
+    my0 = my;   my = ayMid + (e.clientY - cyMid)/cyRad*ayRad;}
+
+canvas.onmousedown = function(e) { mouseDown = 1;}
+canvas.onmouseup   = function(e) { 
+    mouseDown = 0; mouseClickUp = 1; freshMouse = 1;}
+
+/*----------------------- Top Bar Display Function ---------------------*/
+function dataUpdate() {
+    topBar[1].innerHTML = 'DrawLine:' + drawLineI +  
+                    '<br/> BuffLine:' + buffLineI;}
+
+/*----------------------- Buffer Line --------------------------------------*/
+var buffLineI    = 0;
+var buffLineData = new Float32Array(1000);
+var buffLine     = new THREE.LineSegments(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(buffLineData, 2)),
+    new THREE.LineBasicMaterial({vertexColors: THREE.VertexColors, linewidth:6}));
+scene.add(buffLine);
+
+var drawLineI = 0;
+var drawLineData = new Float32Array(10000); 
+var drawLine = new THREE.LineSegments(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(drawLineData, 2)),
+    new THREE.LineBasicMaterial({linewidth:6, color:0x882222}));
+scene.add(drawLine);
+
+
+/*------------------------ Setup -----------------------------------*/
+axRad = 100*aspect;
+ayRad = 100;
+axSet();
+
+axRad = 10*aspect;
+ayRad = 10;
+
+camera = new THREE.OrthographicCamera(
+            axMid - axRad, axMid + axRad,
+            ayMid - ayRad, ayMid + ayRad, -1, 1);
+
+/*---------------------------- Loop --------------------------------*/
+function loop() {     
+    dataUpdate();
+    if (mouseClickUp == 1) {
+        mouseClickUp = 0;
+        if (mode == 'Line') {
+            if (Math.abs(mx - anchorX) + Math.abs(my - anchorY) < .8) {
+                buffLine[2*buffLineI    ] = NaN;
+                buffLine[2*buffLineI + 1] = NaN;
+                buffLineI--;}}
+        buffLine.geometry.attributes.position.needsUpdate = true;
+        drawLine.geometry.attributes.position.needsUpdate = true;}
+
+    if (mouseDown == 1 && freshMouse == 1) {
+         anchorMX = MX;       axMid0   = axMid;
+         anchorMY = MY;       ayMid0   = ayMid; 
+         anchorX  = mx;       anchorY  = my;    freshMouse = 0;
+         if (mode == 'Line') buffLineI++;}
+
+    if (keyDown == 1) {
+        if( panXVel != 0) { axMid += panXVel;       }
+        if( panYVel != 0) { ayMid += panYVel;       }
+        if( zoomVel != 0) { axRad += aspect*zoomVel; ayRad += zoomVel; }
+        camera = new THREE.OrthographicCamera(
+            axMid - axRad, axMid + axRad,
+            ayMid - ayRad, ayMid + ayRad, -1, 1);}
+
+    if (mouseDown == 1 && freshMouse == 0 && mode == 'Pan') {
+        axMid = axMid0 + (anchorMX - MX)/cxRad*axRad;
+        ayMid = ayMid0 + (anchorMY - MY)/cyRad*ayRad;
+        camera = new THREE.OrthographicCamera(
+            axMid - axRad, axMid + axRad, 
+            ayMid - ayRad, ayMid + ayRad, -1, 1);}    
+    
+    if (mouseDown == 1 && mode == 'Line') {
+        buffLineData[4*buffLineI    ] = Math.floor(.5 + anchorX);
+        buffLineData[4*buffLineI + 1] = Math.floor(.5 + anchorY);
+        buffLineData[4*buffLineI + 2] = Math.floor(.5 + mx);
+        buffLineData[4*buffLineI + 3] = Math.floor(.5 + my);
+        buffLine.geometry.attributes.position.needsUpdate = true;}
+    
+    if (mouseDown == 1 && mode == 'Draw') {
+        drawLineData[4*drawLineI    ] = mx0;
+        drawLineData[4*drawLineI + 1] = my0;
+        drawLineData[4*drawLineI + 2] = mx;
+        drawLineData[4*drawLineI + 3] = my;     
+        drawLineI += 4; 
+        if (drawLineI > 5000) drawLineI = 0;
+        drawLine.geometry.attributes.position.needsUpdate = true;}
+
+    requestAnimationFrame(loop);
+    ren.render(scene, camera);}
+loop();
+</script> </body> </html>

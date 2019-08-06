@@ -1,0 +1,297 @@
+<!------------ 2d-truss 5/31 ---------------------$:\^# ------>
+<html> <head> 
+<link href='https://fonts.googleapis.com/css?family=Baloo'
+      rel='stylesheet'>
+<script src='three.min.js'> </script> 
+<script src='sushi.js'>     </script>  <style> 
+
+.key {  top:0%;         height:9.8%;    color:#cccccc;   
+        left:0%;        width:10%;    	font-family:'Baloo'; 
+        border:none;	font-size:20;	background-color:#222222;  position:fixed;}
+.key:hover {background-color: #334433;}
+.key:active{background-color: #333344;} </style> </head> <body> 
+
+<button class="key" id = "key0" style="width:20%;">                 </button>
+<button class="key" onmousedown="key1()" style="left:20%;"> Element </button>
+<button class="key" onmousedown="key2()" style="left:30%;"> FixedPt </button>
+<button class="key" onmousedown="key3()" style="left:40%;"> Force   </button>
+<button class="key" onmousedown="key4()" style="left:50%;">         </button>
+<button class="key" onmousedown="key5()" style="left:60%;"> Clear   </button>    
+<button class="key" onmousedown="key6()" style="left:70%;">         </button>
+<button class="key" onmousedown="key7()" style="left:80%;">         </button>
+<button class="key" onmousedown="key8()" style="left:90%;"> 		</button> 
+
+<div id="infoDiv" style="	   font-size:20;
+	position:fixed; color:#cccccc;   top:10%;   height:90%;
+	      background-color:#2e2e2e; left:60%; 	width:40%;"> </div>
+
+<canvas id="canvas" style=
+	"position:fixed; top:10%; height:90%; 
+	                 left:0%; width:60%;"> </canvas>  <script>
+
+document.body.style.backgroundColor = '#cccccc';
+var key0    = document.getElementById('key0');
+var infoDiv = document.getElementById('infoDiv');
+
+var canvas = document.getElementById('canvas');
+	var lims   = canvas.getBoundingClientRect();
+	var aspect = lims.width/lims.height;
+	var cxMid  = lims.x + lims.width/2;		var cxRad  = lims.width/2;  
+	var cyMid  = lims.y + lims.height/2;    var cyRad  = lims.height/2; 
+
+var ren = new THREE.WebGLRenderer({canvas:canvas});
+	ren.setSize(cxRad*2, cyRad*2);
+	ren.setClearColor(0xcccccc);
+
+var axMid =  0; 		var ayMid = 0;
+var axRad = 10*aspect; 	var ayRad = 10;
+
+var axPts = new Float32Array(900);
+for (i = 0; i < 100; i++) {
+	axPts[8*i    ] =  i - 50;  	axPts[8*i + 1] =      -50;
+    axPts[8*i + 2] =  i - 50;   axPts[8*i + 3] =       50;
+    axPts[8*i + 4] =    - 50;   axPts[8*i + 5] =   i - 50;
+    axPts[8*i + 6] =      50;   axPts[8*i + 7] =   i - 50;}
+
+var ax = new THREE.LineSegments(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(axPts, 2)), 
+    new THREE.LineBasicMaterial({color:0x665555, linewidth: .5}));
+
+var cam = new THREE.OrthographicCamera(-axRad, axRad, ayRad, -ayRad, -1, 1);
+var scn = new THREE.Scene();
+
+var elVertices = new Float32Array(2000);
+var elMesh = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute( 'position', 
+		new THREE.BufferAttribute(elVertices, 2)), 
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, color:0x334433}));
+
+var fVertices = new Float32Array(5000);
+var fMesh = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute('position', 
+		new THREE.BufferAttribute(fVertices, 2)), 
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, color: 0x882222}));
+scn.add(ax, elMesh, fMesh);
+
+/*-------------------------- Data --------------------------------------*/
+var mode = 'build';		var oMesh = [];
+
+var nodeCoords = [];	var elNodes = [];	var K    = 0;	
+var fCoords    = [];	var fNodes  = [];	var K3   = [];	
+var oCoords    = [];	var oNodes  = [];	var KRed = []; 	
+
+var mouseFresh = 1;   var cx = cy = cx0 = cy0 = 0;
+var mouseDown  = 0;   var ax = ay = ax0 = ay0 = 0;
+var mouseUp    = 0;   var gx = gy = gx0 = gy0 = 0; var anchorDist = 0;
+
+/*--------------------- Build Mode Functions --------------------*/
+function elSet(x0, y0, x1, y1) {
+	var dx    = (x1 - x0);		var w    = .2;
+	var dy    = (y1 - y0);		var len  = Math.sqrt(dx*dx + dy*dy);
+	var cos0  = dx/len;			var sin0 = dy/len;
+
+	var I = Math.max(0, elNodes.length);
+	elVertices[12*I   ] = x0 + w*sin0;	elVertices[12*I+ 1]  = y0 - w*cos0;
+	elVertices[12*I+ 2] = x0 - w*sin0;	elVertices[12*I+ 3]  = y0 + w*cos0;
+	elVertices[12*I+ 4] = x1 - w*sin0;	elVertices[12*I+ 5]  = y1 + w*cos0;
+	elVertices[12*I+ 6] = x0 + w*sin0;	elVertices[12*I+ 7]  = y0 - w*cos0;
+	elVertices[12*I+ 8] = x1 + w*sin0;	elVertices[12*I+ 9]  = y1 - w*cos0;
+	elVertices[12*I+10] = x1 - w*sin0;	elVertices[12*I+11]  = y1 + w*cos0;
+	elMesh.geometry.attributes.position.needsUpdate = true;}
+
+function addEl() {
+	var nCount = Math.max(0, nodeCoords.length);
+	if (nCount == 0) {
+		nodeCoords.push([gx0, gy0], [gx, gy]);
+		elNodes.push([0, 1]);}
+	else {	
+		var elNode0Dup = 0;  var elNode0;
+		var elNode1Dup = 0;  var elNode1;
+		for (n = 0; n < nCount; n++) {
+			if ( Math.abs(nodeCoords[n][0] - gx0) 
+		   	   + Math.abs(nodeCoords[n][1] - gy0) < .1){ 
+				elNode0Dup = 1; elNode0 = n;}
+			if ( Math.abs(nodeCoords[n][0] - gx) 
+		   	   + Math.abs(nodeCoords[n][1] - gy) < .1) { 
+				elNode1Dup = 1; elNode1 = n;}}
+
+		if (elNode0Dup == 0) {elNode0 = nCount; nodeCoords.push([gx0, gy0]);}
+		if (elNode1Dup == 0) {elNode1 = nCount; nodeCoords.push([gx , gy ]);}
+
+		elNodes.push([elNode0, elNode1]);}}
+
+/*--------------------- Force Mode Functions --------------------------*/
+function fMeshSet(x0, y0, x1, y1, fIndex) {
+	var dx    = (x1 - x0);
+	var dy    = (y1 - y0);		var len  = Math.sqrt(dx*dx + dy*dy);
+	var cos0  = dx/len;			var sin0 = dy/len;
+	var w     = len/30;			var fI = Math.max(fCoords.length, 0);
+	var fx    = dx;				var fy = dy;	
+
+	fVertices[18*fI     ]  = x0 + w*sin0;	fVertices[18*fI +  1]  = y0 - w*cos0;
+	fVertices[18*fI +  2]  = x0 - w*sin0;  	fVertices[18*fI +  3]  = y0 + w*cos0;
+	fVertices[18*fI +  4]  = x1 - w*sin0;	fVertices[18*fI +  5]  = y1 + w*cos0;
+
+	fVertices[18*fI +  6]  = x0 + w*sin0;	fVertices[18*fI +  7]  = y0 - w*cos0;
+	fVertices[18*fI +  8]  = x1 + w*sin0;	fVertices[18*fI +  9]  = y1 - w*cos0;
+	fVertices[18*fI + 10]  = x1 - w*sin0;  	fVertices[18*fI + 11]  = y1 + w*cos0;
+
+	fVertices[18*fI + 12]  = x1+4*w*sin0;	fVertices[18*fI + 13]  = y1-4*w*cos0;
+	fVertices[18*fI + 14]  = x1-4*w*sin0;  	fVertices[18*fI + 15]  = y1+4*w*cos0;
+	fVertices[18*fI + 16]  = x1 + dx/3;		fVertices[18*fI + 17]  = y1 + dy/3;
+
+	fMesh.geometry.attributes.position.needsUpdate = true;}
+
+/*--------------------- oMode Functions ---------------------*/
+function oFind() {
+	oNodes = [];
+	if (oCoords.length >= 0 && elNodes.length >= 0) {
+		for (var o = 0; o < oCoords.length; o++) {
+			var attached = 0;
+			for (var n = 0; n < nodeCoords.length; n++) {
+				var dx = Math.abs(oCoords[o][0] - nodeCoords[n][0]);
+				var dy = Math.abs(oCoords[o][1] - nodeCoords[n][1]);
+				if (dx + dy < .1) {	attached = 1;}}
+			if (attached == 1) { oNodes.push([n]);}}}}
+
+function fFind() {
+	fNodes = [];
+	if (Math.max(0, fCoords.length) > 0) {
+		for (var f = 0; f <  Math.max(0, fCoords.length); f++) {
+			var f0x = fCoords[f][0]; 	var f0y = fCoords[f][1];	
+			var f1x = fCoords[f][2];	var f1y = fCoords[f][3];
+			for (var n = 0; n < Math.max(0, nodeCoords.length); n++) {
+				var dx = nodeCoords[n][0] - f0x;
+				var dy = nodeCoords[n][1] - f0y;
+				if (dx*dx + dy*dy < .1) {
+					fNodes.push([n, f1x - f0x, f1y - f0y]);}}}}}
+/*---------------------- FEA Functions -----------------------------------*/
+function KMake() {
+	var nodeCount = Math.max(0, nodeCoords.length);
+
+	K = Sushi.Matrix.eye(2*nodeCoords.length); K.zeros();
+
+	for (var el = 0; el < elNodes.length; el++) {
+
+		var KEl = Sushi.Matrix.eye(2*nodeCoords.length); KEl.zeros();
+
+		var n0  = elNodes[el][0];		var n1  = elNodes[el][1];
+		var n0x = nodeCoords[n0][0];	var n1x = nodeCoords[n1][0];
+		var n0y = nodeCoords[n0][1];	var n1y = nodeCoords[n1][1];
+		var dx = (n1x - n0x);			var E = 100;  var A = 1;
+		var dy = (n1y - n0y);			var L = Math.sqrt(dx*dx + dy*dy);
+		var c  = dx/L;					var s = dy/L;
+
+		KEl.set(2*n0, 2*n0  ,  c*c*E*A/L);	KEl.set(2*n0+1, 2*n0  ,  c*s*E*A/L);
+		KEl.set(2*n0, 2*n0+1,  c*s*E*A/L); 	KEl.set(2*n0+1, 2*n0+1,  s*s*E*A/L);	
+		KEl.set(2*n0, 2*n1  , -c*c*E*A/L);	KEl.set(2*n0+1, 2*n1  , -c*s*E*A/L);
+		KEl.set(2*n0, 2*n1+1, -c*s*E*A/L);	KEl.set(2*n0+1, 2*n1+1, -s*s*E*A/L);	
+		KEl.set(2*n1, 2*n0  , -c*c*E*A/L);	KEl.set(2*n1+1, 2*n0  , -c*s*E*A/L);
+		KEl.set(2*n1, 2*n0+1, -c*s*E*A/L);	KEl.set(2*n1+1, 2*n0+1, -s*s*E*A/L);	
+		KEl.set(2*n1, 2*n1,    c*c*E*A/L);	KEl.set(2*n1+1, 2*n1  ,  c*s*E*A/L);
+		KEl.set(2*n1, 2*n1+1,  c*s*E*A/L);	KEl.set(2*n1+1, 2*n1+1,  s*s*E*A/L);
+
+		K.add(KEl);
+		K3[el] = KEl;}
+
+	var dofs = [];
+	for (dof = 0; dof < 2*nodeCoords.length; dof++) {dofs.push(dof);}
+	for (o = 0; o < oNodes.length; i++) { dofs.splice(2*oNodes[o], 2);}
+
+	KRed = Sushi.Matrix.eye(dofs.length); KRed.zeros();}
+
+	// for (var i = 0; i < dofs.length; i++) {
+	// 	for (var j = 0; j < dofs.length; j++) {
+	// 		var val = K.get(dofs[i], dofs[j]);
+	// 		KRed.set(i, j, val);}}}
+
+function clearAll() {
+	for (var i = 0; i < oMesh.length; i++) { scn.remove(oMesh[i]);}
+	for (var i = 0; i < 1000; i++)         { elVertices[i] = NaN; }
+	for (var i = 0; i < 1000; i++)         { fVertices[i]  = NaN; }
+	
+	nodeCoords = [];	elNodes = [];  	K     = [];
+	fCoords    = [];   	fNodes  = []; 	KRed  = [];
+	oCoords    = [];    oNodes  = [];	oMesh = [];
+ 	
+	elMesh.geometry.attributes.position.needsUpdate = true;
+	fMesh.geometry.attributes.position.needsUpdate  = true;}
+
+function fixP(i) {	return i.toFixed();}
+function mPrint(A) {
+	var a = A.map(fixP);
+		a = A.toString();	
+    	a = a.replace(/\n/g, "<br>");
+	return a;}
+
+/*--------------------------- keys, mouse ------------------------*/
+canvas.onmousedown = function()  { 
+	mouseDown = 1;
+	if (mouseFresh == 1) {
+		ax0 = ax;	ay0 = ay;  gx0 = gx;
+		cx0 = cx;   cy0 = cy;  gy0 = gy;	mouseFresh = 0;}}
+canvas.onmouseup = function()  { mouseFresh = mouseUp = 1; mouseDown = 0; }
+
+document.onmousemove = function(e) { 
+    cx = e.clientX;				ax = axMid + (cx - cxMid)/cxRad*axRad; 
+    cy = e.clientY;				ay = ayMid - (cy - cyMid)/cyRad*ayRad;  
+    gx = Math.floor(ax + .5);	gy = Math.floor(ay + .5);}
+
+function key1() { mode = 'build';  }
+function key2() { mode = 'fixedPt';}
+function key3() { mode = 'force';  }
+function key5() { mode = 'refresh';}
+
+/*----------------------------- Loop ---------------------------------*/
+function loop() {
+	anchorDist = Math.abs(gx - gx0) + Math.abs(gy - gy0);
+
+	if (mode == 'build') {
+		if (mouseDown == 1) { elSet(gx0, gy0, gx, gy);}
+		if (mouseUp   == 1) { 
+			if (anchorDist > 0) { addEl();}
+			else {	
+				var elCount = Math.max(0, elNodes.length);
+				for(var e = 12*elCount; e < 12*elCount+12; e++) {
+					elVertices[e] = NaN;}}}}
+
+	if (mode == 'fixedPt') { 
+		var oCount = Math.max(0, oCoords.length);
+		if (mouseDown == 1){
+			if (oMesh.length > 0) { scn.remove(oMesh[oCount]);}
+			oMesh[Math.max(0, oCoords.length)] = new THREE.Mesh(              
+    			new THREE.BoxGeometry(1, 1),
+    			new THREE.MeshBasicMaterial({
+    				color:0x000000, side:THREE.DoubleSide}));
+			oMesh[oCount].position.x = gx;
+			oMesh[oCount].position.y = gy;
+			oMesh[oCount].rotation.z = .7854;	scn.add(oMesh[oCount]);}
+		if (mouseUp == 1){ oCoords.push([gx, gy]);}}
+
+	if (mode == 'force') {
+		if (mouseDown == 1) { fMeshSet(gx0, gy0, gx, gy, fCoords.length);}
+		if (mouseUp   == 1) { 
+			if (anchorDist > 0) {
+				fCoords.push([gx0, gy0, gx, gy]);}
+			else {
+				for (var i = 12*fCoords.length; i < 12*fCoords.length + 12; i++) {
+					fVertices[i] = NaN;}}}}
+
+	if (mode == 'refresh') { clearAll();	mode = 'build';}
+
+	if (mouseUp == 1) { mouseUp = 0; oFind(); fFind(); KMake();}
+
+	infoDiv.innerHTML = 'Data <br/>' + 
+		'<br/> nodes: '   + nodeCoords.length + 
+		'<br/> els:   '   + elNodes.length + 
+		'<br/> oTotal: '  + fCoords.length + 
+		'<br/> oActive: ' + fNodes.length + 
+		'<br/> fTotal: '  + oCoords.length + 
+		'<br/> fActive: ' + oNodes.length;
+
+	requestAnimationFrame(loop);
+	ren.render(scn, cam);}
+
+loop();
+</script> </body> </html>

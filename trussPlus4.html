@@ -1,0 +1,475 @@
+<!--Truss-Plus! -------------------------------------$:\^# -->
+
+<!----------------------- Document Layout -------------------->
+<html> <head> 
+<link href='https://fonts.googleapis.com/css?family=Baloo'
+      rel='stylesheet'>
+<script src='three.min.js'> </script> 
+<script src='sushi.js'>     </script>  <style> 
+
+body {	background-color:#cccccc;}
+.key {  top:0%;         height:9.8%;    color:#cccccc;   
+        left:0%;        width:10%;    	background-color:#222222;
+        border:none;	font-size:20;	font-family:'Baloo';   position:fixed;}
+.key:hover {background-color: #334433;}
+.key:active{background-color: #333344;}  </style> <body> 
+
+<button class="key" onmousedown="key0()" style="width:20%;"> Solve   </button>
+<button class="key" onmousedown="key1()" style="left:20%;">  Element </button>
+<button class="key" onmousedown="key2()" style="left:30%;">  Force   </button>
+<button class="key" onmousedown="key3()" style="left:40%;">  FixedPt </button>
+<button class="key" onmousedown="key4()" style="left:50%;">          </button>
+<button class="key" onmousedown="key5()" style="left:60%;">  Clear   </button>    
+<button class="key" style="left:70%; width:100%;">        		 	 </button>
+
+<canvas id="canvas"    style= "top:10%; height: 90%; position:fixed; 
+                               left:0%; width:55%;"> </canvas>
+<canvas id="canvas2d"  style= "top:10%; height: 90%; position:fixed; 
+                               left:0%; width:55%;"> </canvas>
+<canvas id="canvasInfo"style= "top:10%; height:90%; position:fixed;
+	background-color:#222222;  left:55%; width:45%;"> </canvas>  <script>
+
+/*-------------------------- Graphics Setup --------------------------*/
+var canvasInfo = document.getElementById('canvasInfo');
+var dpi0 = window.devicePixelRatio;
+var sh0= +getComputedStyle(canvasInfo).getPropertyValue("height").slice(0,-2);
+var sw0= +getComputedStyle(canvasInfo).getPropertyValue("width").slice(0,-2);
+canvasInfo.setAttribute('height',sh0*dpi0);
+canvasInfo.setAttribute('width', sw0*dpi0);
+
+var canvasInfoW = canvasInfo.getBoundingClientRect().width;
+var canvasInfoH = canvasInfo.getBoundingClientRect().height;
+
+var axisInfo   = canvasInfo.getContext('2d');
+	axisInfo.font = '26px sans serif';
+
+var canvas2d = document.getElementById('canvas2d');
+var dpi = window.devicePixelRatio;
+var sh= +getComputedStyle(canvas2d).getPropertyValue("height").slice(0,-2);
+var sw= +getComputedStyle(canvas2d).getPropertyValue("width").slice(0,-2);
+canvas2d.setAttribute('height',sh*dpi);
+canvas2d.setAttribute('width', sw*dpi);
+
+var axis   = canvas2d.getContext('2d');
+	axis.font = '26px sans serif';
+
+var canvas  = document.getElementById('canvas');
+	var lims   = canvas.getBoundingClientRect();
+	var aspect = lims.width/lims.height;
+	var cxMid  = lims.x + lims.width/2;		var cxRad  = lims.width/2;  
+	var cyMid  = lims.y + lims.height/2;    var cyRad  = lims.height/2; 
+
+var ren = new THREE.WebGLRenderer({canvas:canvas});
+	ren.setSize(cxRad*2, cyRad*2);
+	ren.setClearColor(0xcccccc);
+
+var axMid =  0; 		var ayMid = 0;
+var axRad = 10*aspect; 	var ayRad = 10;
+
+var axPts = new Float32Array(900);
+for (i = 0; i < 100; i++) {
+	axPts[8*i    ] = i - 50;   axPts[8*i + 1] =    -50;
+    axPts[8*i + 2] = i - 50;   axPts[8*i + 3] =     50;
+    axPts[8*i + 4] =   - 50;   axPts[8*i + 5] = i - 50;
+    axPts[8*i + 6] =     50;   axPts[8*i + 7] = i - 50;}
+
+var ax = new THREE.LineSegments(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(axPts, 2)), 
+    new THREE.LineBasicMaterial({color:0x665555, linewidth: .5}));
+
+var cam = new THREE.OrthographicCamera(-axRad, axRad, ayRad, -ayRad, -1, 1);
+var scn = new THREE.Scene();
+
+var elVertices = new Float32Array(2000);
+var elMesh = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute( 'position', 
+		new THREE.BufferAttribute(elVertices, 2)), 
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, color:0x334433}));
+
+var uVertices = new Float32Array(2000);
+var uMesh = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute( 'position', 
+		new THREE.BufferAttribute(uVertices, 2)), 
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, color:0x0000ff}));
+
+var fVertices = new Float32Array(5000);
+var fMesh = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute('position', 
+		new THREE.BufferAttribute(fVertices, 2)), 
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, color: 0x882222}));
+
+var oVertices = new Float32Array(2000);
+var oMesh = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute( 'position', 
+		new THREE.BufferAttribute(oVertices, 2)), 
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, color:0x111111}));
+
+scn.add(ax, elMesh, fMesh, oMesh, uMesh);
+
+/*--------------------- Graphics Functions --------------------*/
+function axClear() { axis.clearRect(0, 0, 2*cxRad, 2*cyRad);}
+
+function axLine(x0, y0, x1, y1) {
+	var cx0 =  (x0 - axMid)/axRad*cxRad + cxRad;
+	var cy0 = -(y0 - ayMid)/ayRad*cyRad + cyRad;
+	var cx1 =  (x1 - axMid)/axRad*cxRad + cyRad;
+	var cy1 = -(y1 - ayMid)/ayRad*cyRad + cyRad;
+	axis.beginPath(); 		axis.moveTo(cx0, cy0);  
+	axis.lineTo(cx1, cy1); 	axis.stroke();}
+
+function axText(x, y, text) {
+	var cx0 =  (x - axMid)/axRad*cxRad + cxRad;
+	var cy0 = -(y - ayMid)/ayRad*cyRad + cyRad;
+	axis.fillText(text, cx0, cy0)}
+
+function elMeshSet(x0, y0, x1, y1) {
+	var dx    = (x1 - x0);		var w    = .2;
+	var dy    = (y1 - y0);		var len  = Math.sqrt(dx*dx + dy*dy);
+	var cos0  = dx/len;			var sin0 = dy/len;
+
+	var I = Math.max(0, elNodes.length);
+	elVertices[12*I   ] = x0 + w*sin0;	elVertices[12*I+ 1] = y0 - w*cos0;
+	elVertices[12*I+ 2] = x0 - w*sin0;	elVertices[12*I+ 3] = y0 + w*cos0;
+	elVertices[12*I+ 4] = x1 - w*sin0;	elVertices[12*I+ 5] = y1 + w*cos0;
+	elVertices[12*I+ 6] = x0 + w*sin0;	elVertices[12*I+ 7] = y0 - w*cos0;
+	elVertices[12*I+ 8] = x1 + w*sin0;	elVertices[12*I+ 9] = y1 - w*cos0;
+	elVertices[12*I+10] = x1 - w*sin0;	elVertices[12*I+11] = y1 + w*cos0;
+	elMesh.geometry.attributes.position.needsUpdate = true;}
+
+function uMeshSet() {
+	var I = 0;
+
+	for (var e = 0; e < Math.max(0, elNodes.length); e++) {
+		var n0 = elNodes[e][0];
+		var n1 = elNodes[e][1];
+
+		var x0 = nodeCoords[n0][0] + U.get(2*n0,     0);
+		var y0 = nodeCoords[n0][1] + U.get(2*n0 + 1, 0);
+		var x1 = nodeCoords[n1][0] + U.get(2*n1,     0);
+		var y1 = nodeCoords[n1][1] + U.get(2*n1 + 1, 0);
+
+		var dx    = (x1 - x0);	var w    = .02;
+		var dy    = (y1 - y0);	var len  = Math.sqrt(dx*dx + dy*dy);
+		var cos0  = dx/len;		var sin0 = dy/len;
+
+		uVertices[12*I   ] = x0 + w*sin0;	uVertices[12*I+ 1] = y0 - w*cos0;
+		uVertices[12*I+ 2] = x0 - w*sin0;	uVertices[12*I+ 3] = y0 + w*cos0;
+		uVertices[12*I+ 4] = x1 - w*sin0;	uVertices[12*I+ 5] = y1 + w*cos0;
+		uVertices[12*I+ 6] = x0 + w*sin0;	uVertices[12*I+ 7] = y0 - w*cos0;
+		uVertices[12*I+ 8] = x1 + w*sin0;	uVertices[12*I+ 9] = y1 - w*cos0;
+		uVertices[12*I+10] = x1 - w*sin0;	uVertices[12*I+11] = y1 + w*cos0;  I++;}
+	
+	uMesh.geometry.attributes.position.needsUpdate = true;}	
+
+function fMeshSet(x0, y0, x1, y1, fIndex) {
+	var dx    = (x1 - x0);
+	var dy    = (y1 - y0);		var len  = Math.sqrt(dx*dx + dy*dy);
+	var cos0  = dx/len;			var sin0 = dy/len;
+	var w     = len/30;			var fI = Math.max(fCoords.length, 0);
+	var fx    = dx;				var fy = dy;
+
+	fVertices[18*fI     ]  = x0 + w*sin0;	fVertices[18*fI +  1]  = y0 - w*cos0;
+	fVertices[18*fI +  2]  = x0 - w*sin0;  	fVertices[18*fI +  3]  = y0 + w*cos0;
+	fVertices[18*fI +  4]  = x1 - w*sin0;	fVertices[18*fI +  5]  = y1 + w*cos0;
+
+	fVertices[18*fI +  6]  = x0 + w*sin0;	fVertices[18*fI +  7]  = y0 - w*cos0;
+	fVertices[18*fI +  8]  = x1 + w*sin0;	fVertices[18*fI +  9]  = y1 - w*cos0;
+	fVertices[18*fI + 10]  = x1 - w*sin0;  	fVertices[18*fI + 11]  = y1 + w*cos0;
+
+	fVertices[18*fI + 12]  = x1+4*w*sin0;	fVertices[18*fI + 13]  = y1-4*w*cos0;
+	fVertices[18*fI + 14]  = x1-4*w*sin0;  	fVertices[18*fI + 15]  = y1+4*w*cos0;
+	fVertices[18*fI + 16]  = x1 + dx/3;		fVertices[18*fI + 17]  = y1 + dy/3;
+
+	fMesh.geometry.attributes.position.needsUpdate = true;}
+
+function oMeshSet() {
+	var oI = Math.max(oCoords.length, 0);
+
+	oVertices[12*oI     ] = gx - .5;	oVertices[12*oI +  1] = gy;
+	oVertices[12*oI +  2] = gx + .5;	oVertices[12*oI +  3] = gy;
+	oVertices[12*oI +  4] = gx;   		oVertices[12*oI +  5] = gy + .5;
+
+	oVertices[12*oI +  6] = gx + .5;	oVertices[12*oI +  7] = gy;
+	oVertices[12*oI +  8] = gx - .5;	oVertices[12*oI +  9] = gy;
+	oVertices[12*oI + 10] = gx;   		oVertices[12*oI + 11] = gy - .5;
+
+	oMesh.geometry.attributes.position.needsUpdate = true;}
+
+/*--------------------------- Keys, Mouse ------------------------*/
+var mouseFresh = 1;   var cx = cy = cx0 = cy0 = 0;
+var mouseDown  = 0;   var ax = ay = ax0 = ay0 = 0;
+var mouseUp    = 0;   var gx = gy = gx0 = gy0 = 0; var anchorDist = 0;
+
+canvas.onmousedown = function()  { 
+	mouseDown = 1;
+	if (mouseFresh == 1) {
+		ax0 = ax;	ay0 = ay;  gx0 = gx;
+		cx0 = cx;   cy0 = cy;  gy0 = gy;	mouseFresh = 0;}}
+canvas2d.onmouseup = function()  { mouseFresh = mouseUp = 1; mouseDown = 0; }
+
+canvas2d.onmousedown = function()  { 
+	mouseDown = 1;
+	if (mouseFresh == 1) {
+		ax0 = ax;	ay0 = ay;  gx0 = gx;
+		cx0 = cx;   cy0 = cy;  gy0 = gy;	mouseFresh = 0;}}
+canvas.onmouseup = function()  { mouseFresh = mouseUp = 1; mouseDown = 0; }
+
+document.onmousemove = function(e) { 
+    cx = e.clientX;				ax = axMid + (cx - cxMid)/cxRad*axRad; 
+    cy = e.clientY;				ay = ayMid - (cy - cyMid)/cyRad*ayRad;  
+    gx = Math.floor(ax + .5);	gy = Math.floor(ay + .5);}
+
+function key0() { mode = 'solve';  }
+function key1() { mode = 'build';  }
+function key2() { mode = 'force';  }
+function key3() { mode = 'fixedPt';}
+function key5() { mode = 'refresh';}
+
+/*--- _          ___  _    _     _         _      ___                      
+     |_ | |\ | |  |  |_   |_ |  |_ |\  /| |_ |\ |  |
+     |  | | \| |  |  |_   |_ |_ |_ | \/ | |_ | \|  | ---*/
+
+function infoText(x, y, text) {
+	var Cx0 =  x*canvasInfoW;
+	var Cy0 =  y*canvasInfoH;
+	axisInfo.fillText(text, Cx0, Cy0);}
+
+function infoUpdate() {
+	axisInfo.clearRect(0, 0, canvasInfoW, canvasInfoH);
+	axisInfo.textAlign = 'end';
+	axisInfo.font = '16px sans serif';
+	axisInfo.fillStyle = '#303030';
+	infoText(.95, .97, 'Silas Henderson IUPUI');
+	axisInfo.fillStyle = '#ffffff';
+	infoText(.05,.15, 'K');
+	infoText(.8, .15, 'U');
+	infoText(.9, .15, 'F');
+	
+	var fixNum = 1;   if (K.rows > 8) { fixNum =   0;}
+	var stride = .08; if (K.rows > 8) { stride = .06;}
+
+	if (Math.max(0, nodeCoords.length) > 0) {
+		for (var i = 0; i < K.rows; i++) {
+			for (var j = 0; j < K.cols; j++) {
+
+				var x = .07 + j*stride;
+				var y = .2  + i/24;
+				var a = K.get(i, j);	a = a.toFixed(fixNum);
+				infoText(x, y, a);}}}
+
+	if (Math.max(0, fNodes.length) > 0) {
+		for (var i = 0; i < K.rows; i++) {
+			var f = F.get(i, 0);	f = f.toFixed(1);
+			infoText(.9, .2 + i/24, f);}}
+	else {
+		for (var i = 0; i < K.rows; i++) {
+			infoText(.9, .2 + i/24, 0);}}
+
+	if (Math.max(0, U.rows) > 0) {
+		for (var i = 0; i < K.rows; i++) {
+			var u = U.get(i, 0);  	u = u.toFixed(1);
+			infoText(.8, .2 + i/24, u);	}}
+	else { 
+		for (var i = 0; i < K.rows; i++) {
+			infoText(.8, .2 + i/24, 0);}}}
+
+function axText(x, y, text) {
+	var Cx0 =  (x - axMid)/axRad*cxRad + cxRad;
+	var Cy0 = -(y - ayMid)/ayRad*cyRad + cyRad;
+	axis.fillText(text, Cx0, Cy0)}
+
+function label() {
+	if (Math.max(0, freeNodes.length) > 0) {
+		axis.fillStyle = '#4444aa';
+		for (var n = 0; n<freeNodes.length; n++) {
+			axText(nodeCoords[n][0], nodeCoords[n][1],n);}}
+
+	if (Math.max(0, elNodes.length) > 0) {
+		axis.fillStyle = '#aa4444';
+		for (var e = 0; e<elNodes.length; e++) {
+			var n0 = elNodes[e][0];
+			var n1 = elNodes[e][1];
+			var xMid = (nodeCoords[n0][0] + nodeCoords[n1][0])/2;
+			var yMid = (nodeCoords[n0][1] + nodeCoords[n1][1])/2;
+			axText(xMid, yMid, e);}}}
+
+var mode = 'build';	
+
+var nodeCoords = [];	var elNodes = [];	var uCoords   = [];
+var fCoords    = [];	var fNodes  = [];	var KRedInv   = [];
+var oCoords    = [];	var oNodes  = [];	var freeNodes = [];
+
+var K = 0;	 	var KRed = [];	
+var U = [];  	var URed = [];
+var F = [];		var FRed = [];
+
+function KFUpdate() {
+	if (Math.max(0, elNodes.length) > 0) {
+		K = new Sushi.Matrix(2*nodeCoords.length, 2*nodeCoords.length);
+		for (var el = 0; el < elNodes.length; el++) {
+
+			var KEl = Sushi.Matrix.eye(2*nodeCoords.length); KEl.zeros();	
+			var n0  = elNodes[el][0];		var n1  = elNodes[el][1];
+			var n0x = nodeCoords[n0][0];	var n1x = nodeCoords[n1][0];
+			var n0y = nodeCoords[n0][1];	var n1y = nodeCoords[n1][1];
+			var dx = (n1x - n0x);			var E = 100;  var A = 1;
+			var dy = (n1y - n0y);			var L = Math.sqrt(dx*dx + dy*dy);
+			var c  = dx/L;					var s = dy/L;
+	
+			KEl.set(2*n0, 2*n0  ,  c*c*E*A/L);	KEl.set(2*n0+1, 2*n0  ,  c*s*E*A/L);
+			KEl.set(2*n0, 2*n0+1,  c*s*E*A/L); 	KEl.set(2*n0+1, 2*n0+1,  s*s*E*A/L);	
+			KEl.set(2*n0, 2*n1  , -c*c*E*A/L);	KEl.set(2*n0+1, 2*n1  , -c*s*E*A/L);
+			KEl.set(2*n0, 2*n1+1, -c*s*E*A/L);	KEl.set(2*n0+1, 2*n1+1, -s*s*E*A/L);	
+			KEl.set(2*n1, 2*n0  , -c*c*E*A/L);	KEl.set(2*n1+1, 2*n0  , -c*s*E*A/L);
+			KEl.set(2*n1, 2*n0+1, -c*s*E*A/L);	KEl.set(2*n1+1, 2*n0+1, -s*s*E*A/L);	
+			KEl.set(2*n1, 2*n1,    c*c*E*A/L);	KEl.set(2*n1+1, 2*n1  ,  c*s*E*A/L);
+			KEl.set(2*n1, 2*n1+1,  c*s*E*A/L);	KEl.set(2*n1+1, 2*n1+1,  s*s*E*A/L);
+
+		K.add(KEl);}}
+
+	if (Math.max(0, freeNodes.length) > 0) {
+		KRed = new Sushi.Matrix.eye(2*freeNodes.length); KRed.zeros();
+		
+		for (var i = 0; i < freeNodes.length; i++) {
+			for (var j = 0; j < freeNodes.length; j++) {
+
+				KRed.set(2*i,  2*j,   K.get(2*freeNodes[i],   2*freeNodes[j]));
+				KRed.set(2*i+1,2*j,   K.get(2*freeNodes[i]+1, 2*freeNodes[j]));
+				KRed.set(2*i,  2*j+1, K.get(2*freeNodes[i],   2*freeNodes[j]+1));
+				KRed.set(2*i+1,2*j+1, K.get(2*freeNodes[i]+1, 2*freeNodes[j]+1));}}}
+
+	if (Math.max(0, fNodes.length) > 0) {
+		F = new Sushi.Matrix(2*nodeCoords.length, 1);
+		for (var f = 0; f < fNodes.length; f++) {
+			F.set(2*fNodes[f][0],     0, fNodes[f][1]);
+			F.set(2*fNodes[f][0] + 1, 0, fNodes[f][2]);}
+
+		FRed = new Sushi.Matrix(2*freeNodes.length, 1);
+		for	(var n = 0; n < Math.max(0, freeNodes.length); n++) {
+			var N = freeNodes[n];
+			FRed.set(2*n,     0, F.get(2*N, 0));
+			FRed.set(2*n + 1, 0, F.get(2*N + 1, 0));}}}
+
+function uSolve() {
+	KRedInv = KRed.inverse();
+	URed    = Sushi.Matrix.mul(KRedInv, FRed);
+	
+	U       = new Sushi.Matrix(2*nodeCoords.length, 1);
+	for (var n = 0; n<freeNodes.length; n++) {
+		var N = freeNodes[n];
+		U.set(2*N,     0, URed.get(2*n,     0));
+		U.set(2*N + 1, 0, URed.get(2*n + 1, 0));}}
+
+/*----------------------------- Loop ---------------------------------*/
+
+canvas2d.style.zIndex = 1;
+
+function loop() {
+	anchorDist = Math.abs(gx - gx0)+ Math.abs(gy - gy0);
+
+	if (mode == 'build') {
+		if (mouseDown == 1) { elMeshSet(gx0, gy0, gx, gy);}
+		if (mouseUp   == 1) { 
+			if (anchorDist < .1) {
+				var elCount = Math.max(0, elNodes.length);
+				for(var e = 12*elCount; e < 12*elCount+12; e++) {
+					elVertices[e] = NaN;}}
+			else {
+				var nCount = Math.max(0, nodeCoords.length);
+				if (nCount == 0) {
+					nodeCoords.push([gx0, gy0], [gx, gy]); 
+					elNodes.push([0, 1]);}
+				else {	
+					var elNode0Dup = 0;  var elNode0;
+					var elNode1Dup = 0;  var elNode1;
+					for (n = 0; n < nCount; n++) {
+						if (  Math.abs(nodeCoords[n][0] - gx0) 
+		   	   				+ Math.abs(nodeCoords[n][1] - gy0) < .1){ 
+							elNode0Dup = 1; elNode0 = n;}
+						if (  Math.abs(nodeCoords[n][0] - gx) 
+		   	   				+ Math.abs(nodeCoords[n][1] - gy)  < .1){ 
+						elNode1Dup = 1; elNode1 = n;}}
+
+					if (elNode0Dup == 0) {
+						elNode0 = nodeCoords.length; nodeCoords.push([gx0, gy0]);}
+					if (elNode1Dup == 0) {
+						elNode1 = nodeCoords.length; nodeCoords.push([gx , gy ]);}
+					
+					elNodes.push([elNode0, elNode1]);}}}}
+
+	if (mode == 'fixedPt') { 
+		if (mouseDown == 1){ oMeshSet();}
+		if (mouseUp == 1)  { 
+			oNodes = [];
+			oCoords.push([gx, gy]);}}
+
+	if (mode == 'force') {
+		if (mouseDown == 1) { fMeshSet(gx0, gy0, gx, gy, fCoords.length);}
+		if (mouseUp   == 1) { 
+			if (anchorDist == 0) {
+				for (var i = 12*fCoords.length; i < 12*fCoords.length + 12; i++) {
+					fVertices[i] = NaN;}}
+			else {
+				fCoords.push([gx0, gy0, gx, gy]);
+				fNodes = [];
+				for (var f = 0; f < fCoords.length; f++) {
+					var f0x = fCoords[f][0]; 	var f0y = fCoords[f][1];	
+					var f1x = fCoords[f][2];	var f1y = fCoords[f][3];
+					for (var n = 0; n < Math.max(0, nodeCoords.length); n++) {
+						var dx = nodeCoords[n][0] - f0x;
+						var dy = nodeCoords[n][1] - f0y;
+						if (dx*dx + dy*dy < .1) {
+							fNodes.push([n, f1x - f0x, f1y - f0y]);}}}}}}
+
+	if (mode == 'refresh') {
+		mode = 'build';
+		axClear();
+
+		for (var i = 0; i < 1000; i++) {
+			oVertices[i]  = NaN;
+			fVertices[i]  = NaN;
+			elVertices[i] = NaN;
+			uVertices[i]  = NaN;}
+	
+		nodeCoords = [];	elNodes = [];  	K     = [];
+		fCoords    = [];   	fNodes  = []; 	KRed  = [];
+		oCoords    = [];    oNodes  = [];
+
+		oMesh.geometry.attributes.position.needsUpdate  = true;
+ 		fMesh.geometry.attributes.position.needsUpdate  = true;
+		uMesh.geometry.attributes.position.needsUpdate  = true;
+		elMesh.geometry.attributes.position.needsUpdate = true;}
+
+	if (mouseUp == 1) { 
+		mouseUp = 0;
+		if (Math.max(0, oCoords.length > 0)){
+			for (var o = 0; o < oCoords.length; o++) {
+					for (var n = 0; n < nodeCoords.length; n++) {
+						var dx = Math.abs(oCoords[o][0] - nodeCoords[n][0]);
+						var dy = Math.abs(oCoords[o][1] - nodeCoords[n][1]);
+						if (dx + dy < .1) {	oNodes.push(n);}}}}
+		
+		freeNodes = [];
+		for (var n = 0; n < Math.max(0, nodeCoords.length); n++) {
+
+			var fixed = 0;
+			for (var o = 0; o < Math.max(0, oNodes.length); o++) {	
+				if (n == oNodes[o]) {
+					fixed = 1;}}
+			if (fixed == 0) {
+				freeNodes.push(n);}}
+
+		if (freeNodes.length > 0) {
+			KFUpdate();}
+
+		label();}
+
+	if (mode == 'solve') { uSolve(); uMeshSet(); mode = 'build';}
+
+    infoUpdate();
+	requestAnimationFrame(loop);
+	ren.render(scn, cam);}
+
+loop();
+</script> </body> </html>

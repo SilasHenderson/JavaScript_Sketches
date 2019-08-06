@@ -1,0 +1,133 @@
+<!DOCTYPE html> <html> <head> <meta charset = 'UTF-8'> </head>
+<body> <script src='three.min.js'> </script> <script>
+
+/*-------------------------- Variables -----------------------------------*/
+var paperstyle,   topBar, 		  canvas3d; 	// DOM Elements + style
+var canvas3dRen,  canvas3dCamera, canvas3dScene;// 3d Renderer (cam, ren, scn)
+
+var cxRad, cyRad, cxMid, cyMid,   lims, aspect; // Screen Canvas Dimensions
+var axRad, ayRad, axMid, ayMid; 				// Local  Axis   Dimensions
+
+var cx = cy = cx0 = cy0 = 0;					// Mouse Pos (on Axis)
+var ax = ay = ax0 = ay0 = 0;					// Mouse Pos (on Screen)
+var gx = gy = gx0 = gy0 = 0;					// Grid Pos (on Axis)
+
+var mouseFresh   = 1;							// if mouse is (fresh) up
+var mouseDown    = 0; 							// if mouse is down
+var mouseClickUp = 0;							// if mouse clicked up
+
+var numEl = 0;
+
+var axis;			var axisData = new Float32Array(1600);		
+var truss;			var trussV   = new Float32Array(20000);
+var trussI = 0;		var trussC   = new Float32Array(30000);
+
+axMid = 0; 	ayMid = 0;	ayRad = 10;
+
+/*----------------------- Document Layout --------------------------------*/
+paperStyle = 'left:0%;  width: 100%;  position: fixed;  font-size:20;'
+           + 'top: 0%;  height:100%;  color:  #cccccc;  background-color:#222222;';
+
+topBar = document.createElement('div');
+	topBar.style.cssText = paperStyle;		
+	topBar.style.height  = '10%'; 			document.body.appendChild(topBar);
+
+canvas3d = document.createElement('canvas');
+	canvas3d.style.cssText = paperStyle; 	canvas3d.style.top     = '10%';
+	canvas3d.style.height  = '90%'; 		document.body.appendChild(canvas3d);
+
+/*--------------------------- 3d Renderer ---------------------------------*/
+lims   = canvas3d.getBoundingClientRect();	aspect = lims.width/lims.height;
+cxMid  = lims.x + lims.width/2;         	cxRad  = lims.width/2;  
+cyMid  = lims.y + lims.height/2;        	cyRad  = lims.height/2; 
+axRad  = aspect*ayRad;
+
+canvas3dRen = new THREE.WebGLRenderer({canvas:canvas3d});
+    canvas3dRen.setSize(cxRad*2, cyRad*2);
+    canvas3dRen.setClearColor(0xcccccc);
+
+canvas3dScene  = new THREE.Scene();
+canvas3dCamera = new THREE.OrthographicCamera(-axRad, axRad, -ayRad, ayRad, -1, 1);
+
+/*-------------------------- Mouse Functions --------------------------*/
+document.onmousemove = function(e) {
+    cx = e.clientX;		 ax = axMid + (cx - cxMid)/cxRad*axRad;
+    cy = e.clientY;		 ay = ayMid + (cy - cyMid)/cyRad*ayRad;
+    gx = Math.floor(.5 + ax);
+    gy = Math.floor(.5 + ay);}
+
+document.onmousedown = function() { mouseDown = 1;}
+document.onmouseup   = function() { mouseDown = 0; mouseFresh = mouseClickUp = 1;}
+
+/*----------------------------- Axis --------------------------------*/
+for (i = 0; i < 100; i++) {
+	axisData[16*i    ] =    i;	axisData[16*i +  8] = -100;
+	axisData[16*i + 1] = -100;	axisData[16*i +  9] =    i;
+	axisData[16*i + 2] =    i;	axisData[16*i + 10] =  100;
+	axisData[16*i + 3] =  100;	axisData[16*i + 11] =    i;
+	axisData[16*i + 4] =   -i;	axisData[16*i + 12] = -100;
+	axisData[16*i + 5] = -100;	axisData[16*i + 13] =   -i;
+	axisData[16*i + 6] =   -i;	axisData[16*i + 14] =  100;
+	axisData[16*i + 7] =  100;	axisData[16*i + 15] =   -i;}
+
+axis = new THREE.LineSegments(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(axisData, 2)), 
+    new THREE.LineBasicMaterial({color:0x665555, linewidth: .5}));
+canvas3dScene.add(axis);
+
+/*------------------------ Truss Geometry --------------------------*/
+truss  = new THREE.Mesh(
+	new THREE.BufferGeometry().addAttribute( 'position', 
+		new THREE.BufferAttribute(trussV, 2)).addAttribute( 'color',
+		new THREE.BufferAttribute(trussC, 3)),
+	new THREE.MeshBasicMaterial({side: THREE.DoubleSide, 
+	                     vertexColors: THREE.VertexColors}));
+truss.geometry.dynamic = true;
+canvas3dScene.add(truss);
+
+function trussElSet(x, y, w, h, color) {
+	trussV[12*trussI     ] = x;			trussV[12*trussI +  1] = y;	
+	trussV[12*trussI +  2] = x + w;		trussV[12*trussI +  3] = y;	
+	trussV[12*trussI +  4] = x + w; 	trussV[12*trussI +  5] = y + h;		
+	trussV[12*trussI +  6] = x;			trussV[12*trussI +  7] = y + h;
+	trussV[12*trussI +  8] = x + w;		trussV[12*trussI +  9] = y + h;
+	trussV[12*trussI + 10] = x;			trussV[12*trussI + 11] = y;	
+
+	for (var i = 0; i < 18; i++) {
+		trussC[18*trussI + i] = color;}
+
+	trussI++;}
+
+function trussSet() {
+	for (var i = 0; i < 12*trussI; i++) { trussV[i] = 0;}
+	for (var i = 0; i < 18*trussI; i++) { trussC[i] = 0;}
+	trussI = 0;
+	
+	var dw = (gx - gx0)/Math.abs(gx - gx0);
+	var dh = (gy - gy0)/Math.abs(gy - gy0);
+
+	for (var y = Math.min(gy0, gy); y < Math.max(gy0, gy); y++) {
+		for (var x = Math.min(gx0, gx); x < Math.max(gx0, gx); x++) {
+			trussElSet(x, y, 1, 1, Math.random());}}}
+
+/*---------------------------- Loop ---------------------------------*/
+function loop() {
+
+	if (mouseDown == 1 && mouseFresh == 1) {
+		ax0 = ax; ay0 = ay;	gx0 = gx; gy0 = gy;
+		mouseFresh = 0;}
+
+	if (mouseDown == 1) {
+		numEl = Math.abs((gx - gx0)*(gy - gy0));
+		trussSet();}
+	
+	topBar.innerHTML = 'numEl = ' + numEl;
+
+	truss.geometry.attributes.position.needsUpdate  = true;
+  	truss.geometry.attributes.color.needsUpdate     = true;
+  	canvas3dRen.render(canvas3dScene, canvas3dCamera);
+	requestAnimationFrame(loop);}
+
+loop();
+</script> </body> </html>

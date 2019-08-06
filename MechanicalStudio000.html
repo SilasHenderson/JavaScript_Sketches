@@ -1,0 +1,76 @@
+<!-- static ---------------------------------------- $:\^$ # --->
+<html> <head> <link href='https://fonts.googleapis.com/css?family=VT323' rel='stylesheet'>
+<style> body {  font-family: 'VT323';font-size: 22px;} </style> </head> 
+<body> <script src = 'three.min.js'> </script> <script>
+
+document.body.style.backgroundColor = '#000000';
+
+var topBar = document.createElement('div');
+    topBar.style.position = 'fixed';    topBar.style.backgroundColor = '#112233';
+    topBar.style.top      = '0%';       topBar.style.height   = '10%';
+    topBar.style.left     = '0%';       topBar.style.width    = '100%';
+    
+    topBar.style.color    = '#dddddd';  topBar.style.fontSize = 40;
+    topBar.innerHTML      = 'Mechanical-Studio';
+    document.body.appendChild(topBar);
+
+var sideBar = document.createElement('div');
+    sideBar.style.top      = '11%';    sideBar.style.height   = '88%';
+    sideBar.style.left     = '90%';    sideBar.style.width    = '10%';
+    sideBar.style.position = 'fixed';  sideBar.style.backgroundColor = '#222222';
+    document.body.appendChild(sideBar);
+
+var canvas = document.createElement('canvas');
+    canvas.style.top      = '11%';      canvas.style.height = '88%';
+    canvas.style.left     = '0.5%';     canvas.style.width  = '89%';
+    canvas.style.position = 'fixed';    document.body.appendChild(canvas);
+ 
+var ren = new THREE.WebGLRenderer({canvas: canvas});
+    ren.setSize(canvas.offsetWidth, canvas.offsetHeight);
+    ren.setClearColor(0xcccccc);
+
+var scene  = new THREE.Scene();
+var camera = new THREE.OrthographicCamera(-100, 100, -100, 100, -1, 1);
+
+/*------------ Stuff ----------------------------------------------------*/
+data = new Float32Array(3000);
+line = new THREE.LineSegments(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(data, 2)), 
+    new THREE.PointsMaterial({ color:0x222222, size: 10}));
+line.geometry.dynamic = true;
+scene.add(line);
+
+/*------------ Loop -----------------------------------------------------*/
+
+var i = 0;
+function loop() {        
+    requestAnimationFrame(loop);
+
+        data[8*i    ] = i - 100;
+        data[8*i + 1] =    -100;
+        data[8*i + 2] = i - 100;
+        data[8*i + 3] =     100;
+        data[8*i + 4] =    -100;
+        data[8*i + 5] = i - 100;
+        data[8*i + 6] =     100;
+        data[8*i + 7] = i - 100;
+
+    line.geometry.attributes.position.needsUpdate = true;
+    ren.render(scene, camera);
+    
+    i++; 
+    if (i > 200) {
+        i = 0;
+        for (var ii  = 0; ii < 10000; ii++) {
+            data[ii] = 0;}}}
+
+loop();
+</script> </body> </html>
+
+
+
+
+
+
+

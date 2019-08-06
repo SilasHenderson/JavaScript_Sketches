@@ -1,0 +1,150 @@
+<!-- static ---------------------------------------- $:\^$ # --->
+<html> <head> <link href='https://fonts.googleapis.com/css?family=VT323' rel='stylesheet'>
+<style> body {  font-family: 'VT323';font-size: 22px;} </style> </head> 
+<body> <script src = 'three.min.js'> </script> <script>
+
+document.body.style.backgroundColor = '#000000';
+
+var topBar = document.createElement('div');
+    topBar.style.position = 'fixed';    topBar.style.backgroundColor = '#222222';
+    topBar.style.top      = '0%';       topBar.style.height   = '9.8%';
+    topBar.style.left     = '0%';       topBar.style.width    = '100%';
+    topBar.style.color    = '#dddddd';   topBar.style.fontSize = 40;
+    topBar.innerHTML      = '|| Mechanical.Studio';
+    document.body.appendChild(topBar);
+
+var topBarLow = document.createElement('div');
+    topBarLow.style.position = 'fixed';    topBarLow.style.backgroundColor = '#bbbbee';
+    topBarLow.style.top      = '9.8%';     topBarLow.style.height   = '.2%';
+    topBarLow.style.left     = '0%';       topBarLow.style.width    = '100%';
+    document.body.appendChild(topBarLow);
+
+var sideBar = [];
+for (var i = 0; i < 9; i++) {
+    sideBar[i] = document.createElement('div');
+    sideBar[i].style.top      = 11 + 10*i + '%';    sideBar[i].style.height   = '10%';
+    sideBar[i].style.left     = '90%';              sideBar[i].style.width    = '10%';
+    sideBar[i].style.position = 'fixed';  
+    sideBar[i].style.backgroundColor = '#555566';
+    document.body.appendChild(sideBar[i]);}
+
+var canvas = document.createElement('canvas');
+    canvas.style.top      = '11%';      canvas.style.height = '88%';
+    canvas.style.left     = '0.5%';     canvas.style.width  = '89%';
+    canvas.style.position = 'fixed';    document.body.appendChild(canvas);
+ 
+var ren = new THREE.WebGLRenderer({canvas: canvas});
+    ren.setSize(canvas.offsetWidth, canvas.offsetHeight);
+    ren.setClearColor(0xcccccc);
+
+var scene  = new THREE.Scene();
+var camera = new THREE.OrthographicCamera(-100, 100, -100, 100, -1, 1);
+
+/*------------------------ Setup ---------------------------------------*/
+var w = canvas.width;
+var h = canvas.height;
+
+var panXVel = 0;   var keyDown = 0;  var keyClick = 1;
+var panYVel = 0;   var zoomVel = 0;
+
+var XLow  = - Math.floor(w/20);   var YLow  = - h/20;
+var XHigh =   Math.floor(w/20);   var YHigh =   h/20;
+
+var axPts = new Float32Array(10000);
+var ax    = new THREE.LineSegments(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(axPts, 2)), 
+    new THREE.LineBasicMaterial({color:0x665555, linewidth: .5}));
+ax.geometry.dynamic = true;
+scene.add(ax);
+
+var numPts = 10000;
+
+var lineData = new Float32Array(numPts*2); lineData[0] = lineData[1] = 0;
+for (var i = 0; i < numPts; i++) {
+
+    lineData[2*i + 2] = lineData[2*i    ] + (1 - 2*Math.random())/10;
+    lineData[2*i + 3] = lineData[2*i + 1] + (1 - 2*Math.random())/10;}
+
+var colors = new Float32Array(numPts*3);
+for (var i = 0; i < numPts; i++) {
+    colors[3*i    ] = Math.random();
+    colors[3*i + 1] = Math.random();
+    colors[3*i + 2] = Math.random();}
+
+var line  = new THREE.Line(
+    new THREE.BufferGeometry().addAttribute(
+        'position', new THREE.BufferAttribute(lineData, 2)).addAttribute(
+        'color',    new THREE.BufferAttribute(colors, 3)),
+    new THREE.LineBasicMaterial({vertexColors: THREE.VertexColors, linewidth: 4}));
+line.geometry.dynamic = true;
+scene.add(line);
+
+
+function axClear() {
+    for (var i = 0; i < numPts; i++) {
+        axPts[2*i    ] = 0;
+        axPts[2*i + 1] = 0;}}
+
+function axSet(xLow, xHigh, yLow, yHigh, dL) {
+    var pt = 0;
+    for (x = xLow; x < xHigh; x += dL) {
+        axPts[2*pt    ] = x;
+        axPts[2*pt + 1] = yLow;  pt++;
+        axPts[2*pt    ] = x;
+        axPts[2*pt + 1] = yHigh; pt++;}
+
+    for (y = yLow; y < yHigh; y += dL) {
+        axPts[2*pt    ] = xLow;
+        axPts[2*pt + 1] = y;    pt++;
+        axPts[2*pt    ] = xHigh;
+        axPts[2*pt + 1] = y;    pt++;}
+
+    camera = new THREE.OrthographicCamera( xLow, xHigh, yLow, yHigh, -1, 1);}
+
+/*------------------ Keyboard ------------------------------------------*/
+document.onkeydown = function(e) {
+    keyDown = 1; keyClick = 1;
+    if (e.key == 'Enter')      zoomVel =   1;
+    if (e.key == 'Shift')      zoomVel = - 1;
+    if (e.key == 'ArrowLeft')  panXVel =  -.3;
+    if (e.key == 'ArrowRight') panXVel =   .3;
+    if (e.key == 'ArrowUp')    panYVel =  -.3;
+    if (e.key == 'ArrowDown')  panYVel =   .3;}
+
+document.onkeyup = function(e) {
+    keyDown = 0; zoomVel = 0; panXVel = 0; panYVel = 0;}
+
+axSet(XLow, XHigh, YLow, YHigh, 1);
+/*------------ Loop -----------------------------------------------------*/
+var i = 0; var zoomVel = 0;
+function loop() {     
+
+    for (var i = 0; i < numPts; i++) {
+        lineData[2*i    ] += (1 - 2*Math.random())/100;
+        lineData[2*i + 1] += (1 - 2*Math.random())/100; }
+
+    if (keyDown == 1) {
+
+        if( panXVel != 0) {XLow += panXVel;  XHigh += panXVel;}
+        if( panYVel != 0) {YLow += panYVel;  YHigh += panYVel;}
+        if (zoomVel == -1 && XHigh - XLow  < 100)  { 
+             XLow  -= w/2000;     XHigh += w/2000;
+             YLow  -= h/2000;     YHigh += h/2000;}
+
+        if (zoomVel ==  1 && XHigh - XLow > 5)  {
+            XLow   += w/2000;     XHigh -= w/2000;
+            YLow   += h/2000;     YHigh -= h/2000;}
+
+        axClear();
+        axSet(XLow, XHigh, YLow, YHigh, 1);}
+    
+    // topBar.innerHTML = 'XLow = '+  XLow.toFixed() + 'XHigh' + XHigh.toFixed();
+    requestAnimationFrame(loop);
+    ren.render(scene, camera);
+
+    ax.geometry.attributes.position.needsUpdate = true;
+    // line.geometry.attributes.color.needsUpdate = true;
+    line.geometry.attributes.position.needsUpdate = true;}
+loop();
+</script> </body> </html>
